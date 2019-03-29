@@ -66,7 +66,7 @@ class AppInfo {
       buildVersion = this.version;
 
       if (!(0, _builderUtil().isEmptyOrSpaces)(this.buildNumber)) {
-        buildVersion += `.${this.buildNumber}`;
+        buildVersion = this.buildNumber;
       }
     }
 

@@ -158,7 +158,6 @@ class AppXTarget extends _core().Target {
       const assetRoot = stageDir.getTempFile("appx/assets");
       await (0, _fsExtraP().emptyDir)(assetRoot);
       await _bluebirdLst().default.map(assetInfo.allAssets, it => (0, _fs().copyOrLinkFile)(it, path.join(assetRoot, path.basename(it))));
-      (0, _fs().copyOrLinkFile)("../assets/win/vzl.ico", path.join(assetRoot, path.basename('../assets/win/vzl.ico')));
       await vm.exec(makePriPath, ["new", "/Overwrite", "/Manifest", vm.toVmFile(manifestFile), "/ProjectRoot", vm.toVmFile(path.dirname(assetRoot)), "/ConfigXml", vm.toVmFile(path.join((0, _pathManager().getTemplatePath)("appx"), "priconfig.xml")), "/OutputFile", outFile]); // in addition to resources.pri, resources.scale-140.pri and other such files will be generated
 
       for (const resourceFile of (await (0, _fsExtraP().readdir)(stageDir.dir)).filter(it => it.startsWith("resources.")).sort()) {

@@ -377,7 +377,7 @@ class Packager {
 
     try {
       _builderUtil().log.info({
-        version: "0.0.0-semantic-release"
+        version: "20.39.0"
       }, "electron-builder");
     } catch (e) {
       // error in dev mode without babel
