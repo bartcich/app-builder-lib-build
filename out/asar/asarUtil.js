@@ -25,20 +25,12 @@ function _fs() {
   return data;
 }
 
-function _fs2() {
-  const data = require("fs");
+var _fs2 = require("fs");
 
-  _fs2 = function () {
-    return data;
-  };
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  return data;
-}
-
-function _fsExtraP() {
-  const data = require("fs-extra-p");
-
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -77,7 +69,9 @@ function _unpackDetector() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 const pickle = require("chromium-pickle-js");
 /** @internal */
@@ -101,7 +95,7 @@ class AsarPackager {
       await order(fileSets[0].files, this.options.ordering, fileSets[0].src);
     }
 
-    await (0, _fsExtraP().ensureDir)(path.dirname(this.outFile));
+    await (0, _fsExtra().ensureDir)(path.dirname(this.outFile));
     const unpackedFileIndexMap = new Map();
 
     for (const fileSet of fileSets) {
@@ -130,7 +124,7 @@ class AsarPackager {
           unpackedDirs.add(filePathInArchive); // not all dirs marked as unpacked after first iteration - because node module dir can be marked as unpacked after processing node module dir content
           // e.g. node-notifier/example/advanced.js processed, but only on process vendor/terminal-notifier.app module will be marked as unpacked
 
-          await (0, _fsExtraP().ensureDir)(path.join(this.unpackedDest, filePathInArchive));
+          await (0, _fsExtra().ensureDir)(path.join(this.unpackedDest, filePathInArchive));
           break;
         }
       }
@@ -192,7 +186,7 @@ class AsarPackager {
       if (isUnpacked) {
         if (!dirNode.unpacked && !dirToCreateForUnpackedFiles.has(fileParent)) {
           dirToCreateForUnpackedFiles.add(fileParent);
-          await (0, _fsExtraP().ensureDir)(path.join(this.unpackedDest, fileParent));
+          await (0, _fsExtra().ensureDir)(path.join(this.unpackedDest, fileParent));
         }
 
         const unpackedFile = path.join(this.unpackedDest, pathInArchive);
@@ -221,7 +215,7 @@ class AsarPackager {
       const sizePickle = pickle.createEmpty();
       sizePickle.writeUInt32(headerBuf.length);
       const sizeBuf = sizePickle.toBuffer();
-      const writeStream = (0, _fsExtraP().createWriteStream)(this.outFile);
+      const writeStream = (0, _fsExtra().createWriteStream)(this.outFile);
       writeStream.on("error", reject);
       writeStream.on("close", resolve);
       writeStream.write(sizeBuf);
@@ -252,7 +246,7 @@ class AsarPackager {
             const stat = metadata.get(files[index]);
 
             if (stat != null && stat.isSymbolicLink()) {
-              (0, _fs2().symlink)(stat.linkRelativeToFile, path.join(this.unpackedDest, stat.pathInArchive), () => w(index + 1));
+              (0, _fs2.symlink)(stat.linkRelativeToFile, path.join(this.unpackedDest, stat.pathInArchive), () => w(index + 1));
               return;
             }
           }
@@ -272,11 +266,11 @@ class AsarPackager {
         const stat = metadata.get(file);
 
         if (stat != null && stat.size < 2 * 1024 * 1024) {
-          (0, _fsExtraP().readFile)(file).then(it => {
+          (0, _fsExtra().readFile)(file).then(it => {
             writeStream.write(it, () => w(index + 1));
           }).catch(e => reject(`Cannot read file ${file}: ${e.stack || e}`));
         } else {
-          const readStream = (0, _fsExtraP().createReadStream)(file);
+          const readStream = (0, _fsExtra().createReadStream)(file);
           readStream.on("error", reject);
           readStream.once("end", () => w(index + 1));
           readStream.pipe(writeStream, {
@@ -294,7 +288,7 @@ class AsarPackager {
 exports.AsarPackager = AsarPackager;
 
 async function order(filenames, orderingFile, src) {
-  const orderingFiles = (await (0, _fsExtraP().readFile)(orderingFile, "utf8")).split("\n").map(line => {
+  const orderingFiles = (await (0, _fsExtra().readFile)(orderingFile, "utf8")).split("\n").map(line => {
     if (line.indexOf(":") !== -1) {
       line = line.split(":").pop();
     }
@@ -345,7 +339,7 @@ function copyFileOrData(fileCopier, data, source, destination, stats) {
   if (data == null) {
     return fileCopier.copy(source, destination, stats);
   } else {
-    return (0, _fsExtraP().writeFile)(destination, data);
+    return (0, _fsExtra().writeFile)(destination, data);
   }
 } 
 // __ts-babel@6.0.4

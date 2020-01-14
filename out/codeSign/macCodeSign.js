@@ -5,6 +5,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.isSignAllowed = isSignAllowed;
 exports.reportError = reportError;
+exports.removeKeychain = removeKeychain;
 exports.createKeychain = createKeychain;
 exports.sign = sign;
 exports.findIdentity = findIdentity;
@@ -60,10 +61,10 @@ function _crypto() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -112,16 +113,6 @@ function _flags() {
   return data;
 }
 
-function _macosVersion() {
-  const data = require("../util/macosVersion");
-
-  _macosVersion = function () {
-    return data;
-  };
-
-  return data;
-}
-
 function _codesign() {
   const data = require("./codesign");
 
@@ -132,7 +123,9 @@ function _codesign() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -170,7 +163,7 @@ function isSignAllowed(isPrintWarn = true) {
   return true;
 }
 
-async function reportError(isMas, certificateType, qualifier, keychainName, isForceCodeSigning) {
+async function reportError(isMas, certificateType, qualifier, keychainFile, isForceCodeSigning) {
   const logFields = {};
 
   if (qualifier == null) {
@@ -192,8 +185,8 @@ async function reportError(isMas, certificateType, qualifier, keychainName, isFo
 
   const args = ["find-identity"];
 
-  if (keychainName != null) {
-    args.push(keychainName);
+  if (keychainFile != null) {
+    args.push(keychainFile);
   }
 
   if (qualifier != null || (0, _flags().isAutoDiscoveryCodeSignIdentity)()) {
@@ -216,7 +209,7 @@ const bundledCertKeychainAdded = new (_lazyVal().Lazy)(async () => {
   const cacheDir = getCacheDirectory();
   const tmpKeychainPath = path.join(cacheDir, (0, _tempFile().getTempName)("electron-builder-root-certs"));
   const keychainPath = path.join(cacheDir, "electron-builder-root-certs.keychain");
-  const results = await Promise.all([listUserKeychains(), (0, _fs().copyFile)(path.join(__dirname, "..", "..", "certs", "root_certs.keychain"), tmpKeychainPath).then(() => (0, _fsExtraP().rename)(tmpKeychainPath, keychainPath))]);
+  const results = await Promise.all([listUserKeychains(), (0, _fs().copyFile)(path.join(__dirname, "..", "..", "certs", "root_certs.keychain"), tmpKeychainPath).then(() => (0, _fsExtra().rename)(tmpKeychainPath, keychainPath))]);
   const list = results[0];
 
   if (!list.includes(keychainPath)) {
@@ -236,13 +229,17 @@ function listUserKeychains() {
   }).filter(it => it.length > 0));
 }
 
-async function removeKeychain(keychainFile) {
-  try {
-    await (0, _util().exec)("security", ["delete-keychain", keychainFile]);
-  } catch (e) {
-    console.warn(`Cannot delete keychain ${keychainFile}: ${e.stack || e}`);
-    await (0, _fs().unlinkIfExists)(keychainFile);
-  }
+function removeKeychain(keychainFile, printWarn = true) {
+  return (0, _util().exec)("security", ["delete-keychain", keychainFile]).catch(e => {
+    if (printWarn) {
+      _util().log.warn({
+        file: keychainFile,
+        error: e.stack || e
+      }, "cannot delete keychain");
+    }
+
+    return (0, _fs().unlinkIfExists)(keychainFile);
+  });
 }
 
 async function createKeychain({
@@ -256,12 +253,13 @@ async function createKeychain({
   // travis has correct AppleWWDRCA cert
   if (process.env.TRAVIS !== "true") {
     await bundledCertKeychainAdded.value;
-  }
+  } // https://github.com/electron-userland/electron-builder/issues/3685
+  // use constant file
 
-  const keychainFile = await tmpDir.getTempFile({
-    suffix: ".keychain",
-    disposer: removeKeychain
-  });
+
+  const keychainFile = path.join(process.env.APP_BUILDER_TMP_DIR || (0, _os().tmpdir)(), `${(0, _crypto().createHash)("sha256").update(currentDir).update("app-builder").digest("hex")}.keychain`); // noinspection JSUnusedLocalSymbols
+
+  await removeKeychain(keychainFile, false).catch(_ => {});
   const certLinks = [cscLink];
 
   if (cscILink != null) {
@@ -269,7 +267,7 @@ async function createKeychain({
   }
 
   const certPaths = new Array(certLinks.length);
-  const keychainPassword = (0, _crypto().randomBytes)(8).toString("base64");
+  const keychainPassword = (0, _crypto().randomBytes)(32).toString("base64");
   const securityCommands = [["create-keychain", "-p", keychainPassword, keychainFile], ["unlock-keychain", "-p", keychainPassword, keychainFile], ["set-keychain-settings", keychainFile]]; // https://stackoverflow.com/questions/42484678/codesign-keychain-gets-ignored
   // https://github.com/electron-userland/electron-builder/issues/1457
 
@@ -284,19 +282,17 @@ async function createKeychain({
   return await importCerts(keychainFile, certPaths, [cscKeyPassword, cscIKeyPassword].filter(it => it != null));
 }
 
-async function importCerts(keychainName, paths, keyPasswords) {
+async function importCerts(keychainFile, paths, keyPasswords) {
   for (let i = 0; i < paths.length; i++) {
     const password = keyPasswords[i];
-    await (0, _util().exec)("security", ["import", paths[i], "-k", keychainName, "-T", "/usr/bin/codesign", "-T", "/usr/bin/productbuild", "-P", password]); // https://stackoverflow.com/questions/39868578/security-codesign-in-sierra-keychain-ignores-access-control-settings-and-ui-p
+    await (0, _util().exec)("security", ["import", paths[i], "-k", keychainFile, "-T", "/usr/bin/codesign", "-T", "/usr/bin/productbuild", "-P", password]); // https://stackoverflow.com/questions/39868578/security-codesign-in-sierra-keychain-ignores-access-control-settings-and-ui-p
     // https://github.com/electron-userland/electron-packager/issues/701#issuecomment-322315996
 
-    if (await (0, _macosVersion().isMacOsSierra)()) {
-      await (0, _util().exec)("security", ["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", password, keychainName]);
-    }
+    await (0, _util().exec)("security", ["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", password, keychainFile]);
   }
 
   return {
-    keychainName
+    keychainFile
   };
 }
 /** @private */
@@ -392,7 +388,7 @@ async function _findIdentity(type, qualifier, keychain) {
   return null;
 }
 
-const _Identity = require("electron-osx-sign/util-identities").Identity;
+const _Identity = require("../../electron-osx-sign/util-identities").Identity;
 
 function parseIdentity(line) {
   const firstQuoteIndex = line.indexOf('"');

@@ -5,10 +5,10 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.LibUiFramework = void 0;
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -16,16 +16,6 @@ function _fsExtraP() {
 }
 
 var path = _interopRequireWildcard(require("path"));
-
-function _plist() {
-  const data = require("plist");
-
-  _plist = function () {
-    return data;
-  };
-
-  return data;
-}
 
 function _builderUtil() {
   const data = require("builder-util");
@@ -47,7 +37,19 @@ function _core() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _appBuilder() {
+  const data = require("../util/appBuilder");
+
+  _appBuilder = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 class LibUiFramework {
   constructor(version, distMacOsAppName, isUseLaunchUi) {
@@ -65,7 +67,7 @@ class LibUiFramework {
   }
 
   async prepareApplicationStageDirectory(options) {
-    await (0, _fsExtraP().emptyDir)(options.appOutDir);
+    await (0, _fsExtra().emptyDir)(options.appOutDir);
     const packager = options.packager;
     const platform = packager.platform;
 
@@ -84,15 +86,17 @@ class LibUiFramework {
 
   async prepareMacosApplicationStageDirectory(packager, options) {
     const appContentsDir = path.join(options.appOutDir, this.distMacOsAppName, "Contents");
-    await (0, _fsExtraP().ensureDir)(path.join(appContentsDir, "Resources"));
-    await (0, _fsExtraP().ensureDir)(path.join(appContentsDir, "MacOS"));
+    await (0, _fsExtra().ensureDir)(path.join(appContentsDir, "Resources"));
+    await (0, _fsExtra().ensureDir)(path.join(appContentsDir, "MacOS"));
     await (0, _builderUtil().executeAppBuilder)(["proton-native", "--node-version", this.version, "--platform", "darwin", "--stage", path.join(appContentsDir, "MacOS")]);
     const appPlist = {
       // https://github.com/albe-rosado/create-proton-app/issues/13
       NSHighResolutionCapable: true
     };
     await packager.applyCommonInfo(appPlist, appContentsDir);
-    await Promise.all([(0, _fsExtraP().writeFile)(path.join(appContentsDir, "Info.plist"), (0, _plist().build)(appPlist)), writeExecutableMain(path.join(appContentsDir, "MacOS", appPlist.CFBundleExecutable), `#!/bin/sh
+    await Promise.all([(0, _appBuilder().executeAppBuilderAndWriteJson)(["encode-plist"], {
+      [path.join(appContentsDir, "Info.plist")]: appPlist
+    }), writeExecutableMain(path.join(appContentsDir, "MacOS", appPlist.CFBundleExecutable), `#!/bin/sh
   DIR=$(dirname "$0")
   "$DIR/node" "$DIR/../Resources/app/${options.packager.info.metadata.main || "index.js"}"
   `)]);
@@ -122,7 +126,7 @@ class LibUiFramework {
       return;
     }
 
-    await (0, _fsExtraP().rename)(path.join(context.appOutDir, "app", userMain), path.join(context.appOutDir, "app", "main.js"));
+    await (0, _fsExtra().rename)(path.join(context.appOutDir, "app", userMain), path.join(context.appOutDir, "app", "main.js"));
   }
 
   getMainFile(platform) {
@@ -143,10 +147,10 @@ class LibUiFramework {
 exports.LibUiFramework = LibUiFramework;
 
 async function writeExecutableMain(file, content) {
-  await (0, _fsExtraP().writeFile)(file, content, {
+  await (0, _fsExtra().writeFile)(file, content, {
     mode: 0o755
   });
-  await (0, _fsExtraP().chmod)(file, 0o755);
+  await (0, _fsExtra().chmod)(file, 0o755);
 } 
 // __ts-babel@6.0.4
 //# sourceMappingURL=LibUiFramework.js.map

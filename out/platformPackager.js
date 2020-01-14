@@ -4,9 +4,11 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.isSafeGithubName = isSafeGithubName;
+exports.computeSafeArtifactNameIfNeeded = computeSafeArtifactNameIfNeeded;
 exports.normalizeExt = normalizeExt;
 exports.resolveFunction = resolveFunction;
 exports.chooseNotNull = chooseNotNull;
+exports.isSafeToUnpackElectronOnRemoteBuildServer = isSafeToUnpackElectronOnRemoteBuildServer;
 exports.PlatformPackager = void 0;
 
 function _bluebirdLst() {
@@ -23,6 +25,16 @@ function _builderUtil() {
   const data = require("builder-util");
 
   _builderUtil = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function _arch() {
+  const data = require("builder-util/out/arch");
+
+  _arch = function () {
     return data;
   };
 
@@ -49,10 +61,10 @@ function _promise() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -181,7 +193,9 @@ function _macroExpander() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -189,7 +203,7 @@ class PlatformPackager {
   constructor(info, platform) {
     this.info = info;
     this.platform = platform;
-    this._resourceList = new (_lazyVal().Lazy)(() => (0, _promise().orIfFileNotExist)((0, _fsExtraP().readdir)(this.info.buildResourcesDir), []));
+    this._resourceList = new (_lazyVal().Lazy)(() => (0, _promise().orIfFileNotExist)((0, _fsExtra().readdir)(this.info.buildResourcesDir), []));
     this.platformSpecificBuildOptions = PlatformPackager.normalizePlatformSpecificBuildOptions(this.config[platform.buildConfigurationKey]);
     this.appInfo = this.prepareAppInfo(info.appInfo);
   }
@@ -312,14 +326,6 @@ class PlatformPackager {
   getExtraFileMatchers(isResources, appOutDir, options) {
     const base = isResources ? this.getResourcesDir(appOutDir) : this.platform === _index().Platform.MAC ? path.join(appOutDir, `${this.appInfo.productFilename}.app`, "Contents") : appOutDir;
     return (0, _fileMatcher().getFileMatchers)(this.config, isResources ? "extraResources" : "extraFiles", base, options);
-  }
-
-  get electronDistExecutableName() {
-    return this.config.muonVersion == null ? "electron" : "brave";
-  }
-
-  get electronDistMacOsExecutableName() {
-    return this.config.muonVersion == null ? "Electron" : "Brave";
   }
 
   createGetFileMatchersOptions(outDir, arch, customBuildOptions) {
@@ -636,12 +642,7 @@ class PlatformPackager {
 
 
   computeSafeArtifactName(suggestedName, ext, arch, skipArchIfX64 = true, safePattern = "${name}-${version}-${arch}.${ext}") {
-    // GitHub only allows the listed characters in file names.
-    if (suggestedName != null && isSafeGithubName(suggestedName)) {
-      return null;
-    }
-
-    return this.computeArtifactName(safePattern, ext, skipArchIfX64 && arch === _builderUtil().Arch.x64 ? null : arch);
+    return computeSafeArtifactNameIfNeeded(suggestedName, () => this.computeArtifactName(safePattern, ext, skipArchIfX64 && arch === _builderUtil().Arch.x64 ? null : arch));
   }
 
   expandArtifactNamePattern(targetSpecificOptions, ext, arch, defaultPattern, skipArchIfX64 = true) {
@@ -669,22 +670,7 @@ class PlatformPackager {
   }
 
   computeArtifactName(pattern, ext, arch) {
-    let archName = arch == null ? null : _builderUtil().Arch[arch];
-
-    if (arch === _builderUtil().Arch.x64) {
-      if (ext === "AppImage" || ext === "rpm") {
-        archName = "x86_64";
-      } else if (ext === "deb" || ext === "snap") {
-        archName = "amd64";
-      }
-    } else if (arch === _builderUtil().Arch.ia32) {
-      if (ext === "deb" || ext === "AppImage" || ext === "snap") {
-        archName = "i386";
-      } else if (ext === "pacman" || ext === "rpm") {
-        archName = "i686";
-      }
-    }
-
+    const archName = arch == null ? null : (0, _arch().getArtifactArchName)(arch, ext);
     return this.expandMacro(pattern, this.platform === _index().Platform.MAC ? null : archName, {
       ext
     });
@@ -810,6 +796,24 @@ exports.PlatformPackager = PlatformPackager;
 
 function isSafeGithubName(name) {
   return /^[0-9A-Za-z._-]+$/.test(name);
+}
+
+function computeSafeArtifactNameIfNeeded(suggestedName, safeNameProducer) {
+  // GitHub only allows the listed characters in file names.
+  if (suggestedName != null) {
+    if (isSafeGithubName(suggestedName)) {
+      return null;
+    } // prefer to use suggested name - so, if space is the only problem, just replace only space to dash
+
+
+    suggestedName = suggestedName.replace(/ /g, "-");
+
+    if (isSafeGithubName(suggestedName)) {
+      return suggestedName;
+    }
+  }
+
+  return safeNameProducer();
 } // remove leading dot
 
 
@@ -852,6 +856,18 @@ function chooseNotNull(v1, v2) {
 
 function capitalizeFirstLetter(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function isSafeToUnpackElectronOnRemoteBuildServer(packager) {
+  if (packager.platform !== _index().Platform.LINUX || packager.config.remoteBuild === false) {
+    return false;
+  }
+
+  if (process.platform === "win32" || (0, _builderUtil().isEnvTrue)(process.env._REMOTE_BUILD)) {
+    return packager.config.electronDist == null && packager.config.electronDownload == null;
+  }
+
+  return false;
 } 
 // __ts-babel@6.0.4
 //# sourceMappingURL=platformPackager.js.map

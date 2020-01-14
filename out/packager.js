@@ -5,16 +5,6 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.Packager = void 0;
 
-function _bluebirdLst() {
-  const data = _interopRequireDefault(require("bluebird-lst"));
-
-  _bluebirdLst = function () {
-    return data;
-  };
-
-  return data;
-}
-
 function _builderUtil() {
   const data = require("builder-util");
 
@@ -29,16 +19,6 @@ function _builderUtilRuntime() {
   const data = require("builder-util-runtime");
 
   _builderUtilRuntime = function () {
-    return data;
-  };
-
-  return data;
-}
-
-function _fs() {
-  const data = require("builder-util/out/fs");
-
-  _fs = function () {
     return data;
   };
 
@@ -65,10 +45,10 @@ function _events() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -96,6 +76,16 @@ function _lazyVal() {
 }
 
 var path = _interopRequireWildcard(require("path"));
+
+function _arch() {
+  const data = require("builder-util/out/arch");
+
+  _arch = function () {
+    return data;
+  };
+
+  return data;
+}
 
 function _appInfo() {
   const data = require("./appInfo");
@@ -237,7 +227,9 @@ function _yarn() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -252,13 +244,7 @@ async function createFrameworkInfo(configuration, packager) {
     framework = framework.toLowerCase();
   }
 
-  let nodeVersion = configuration.nodeVersion; // noinspection JSDeprecatedSymbols
-
-  if (framework == null && configuration.protonNodeVersion != null) {
-    framework = "proton"; // noinspection JSDeprecatedSymbols
-
-    nodeVersion = configuration.protonNodeVersion;
-  }
+  let nodeVersion = configuration.nodeVersion;
 
   if (framework === "electron" || framework == null) {
     return await (0, _ElectronFramework().createElectronFrameworkSupport)(configuration, packager);
@@ -271,7 +257,7 @@ async function createFrameworkInfo(configuration, packager) {
   const distMacOsName = `${packager.appInfo.productFilename}.app`;
   const isUseLaunchUi = configuration.launchUiVersion !== false;
 
-  if (framework === "proton") {
+  if (framework === "proton" || framework === "proton-native") {
     return new (_ProtonFramework().ProtonFramework)(nodeVersion, distMacOsName, isUseLaunchUi);
   } else if (framework === "libui") {
     return new (_LibUiFramework().LibUiFramework)(nodeVersion, distMacOsName, isUseLaunchUi);
@@ -296,14 +282,15 @@ class Packager {
     this._repositoryInfo = new (_lazyVal().Lazy)(() => (0, _repositoryInfo().getRepositoryInfo)(this.projectDir, this.metadata, this.devMetadata));
     this.afterPackHandlers = [];
     this.debugLogger = new (_builderUtil().DebugLogger)(_builderUtil().log.isDebugEnabled);
-    this._productionDeps = null;
+    this.nodeDependencyInfo = new Map();
 
     this.stageDirPathCustomizer = (target, packager, arch) => {
-      return path.join(target.outDir, `__${target.name}-${_builderUtil().Arch[arch]}`);
+      return path.join(target.outDir, `__${target.name}-${(0, _arch().getArtifactArchName)(arch, target.name)}`);
     };
 
     this._buildResourcesDir = null;
     this._framework = null;
+    this.toDispose = [];
 
     if ("devMetadata" in options) {
       throw new (_builderUtil().InvalidConfigurationError)("devMetadata in the options is deprecated, please use config instead");
@@ -371,13 +358,14 @@ class Packager {
 
     this.projectDir = options.projectDir == null ? process.cwd() : path.resolve(options.projectDir);
     this._appDir = this.projectDir;
-    this.options = Object.assign({}, options, {
+    this.options = Object.assign(Object.assign({}, options), {
       prepackaged: options.prepackaged == null ? null : path.resolve(this.projectDir, options.prepackaged)
     });
 
     try {
       _builderUtil().log.info({
-        version: "20.39.0"
+        version: "0.0.0-semantic-release",
+        os: require("os").release()
       }, "electron-builder");
     } catch (e) {
       // error in dev mode without babel
@@ -419,19 +407,23 @@ class Packager {
     return this._repositoryInfo.value;
   }
 
-  get productionDeps() {
-    let result = this._productionDeps;
+  getNodeDependencyInfo(platform) {
+    let key = "";
+    let excludedDependencies = null;
+
+    if (platform != null && this.framework.getExcludedDependencies != null) {
+      excludedDependencies = this.framework.getExcludedDependencies(platform);
+
+      if (excludedDependencies != null) {
+        key += `-${platform.name}`;
+      }
+    }
+
+    let result = this.nodeDependencyInfo.get(key);
 
     if (result == null) {
-      // https://github.com/electron-userland/electron-builder/issues/2551
-      result = new (_lazyVal().Lazy)(async () => {
-        if (this.config.beforeBuild == null || (await (0, _fs().exists)(path.join(this.appDir, "node_modules")))) {
-          return await (0, _packageDependencies().getProductionDependencies)(this.appDir);
-        } else {
-          return [];
-        }
-      });
-      this._productionDeps = result;
+      result = (0, _packageDependencies().createLazyProductionDeps)(this.appDir, excludedDependencies);
+      this.nodeDependencyInfo.set(key, result);
     }
 
     return result;
@@ -454,6 +446,10 @@ class Packager {
 
   get framework() {
     return this._framework;
+  }
+
+  disposeOnBuildFinish(disposer) {
+    this.toDispose.push(disposer);
   }
 
   addAfterPackHandler(handler) {
@@ -568,7 +564,7 @@ class Packager {
         file: _builderUtil().log.filePath(effectiveConfigFile)
       }, "writing effective config");
 
-      await (0, _fsExtraP().outputFile)(effectiveConfigFile, getSafeEffectiveConfig(configuration));
+      await (0, _fsExtra().outputFile)(effectiveConfigFile, getSafeEffectiveConfig(configuration));
     } // because artifact event maybe dispatched several times for different publish providers
 
 
@@ -578,12 +574,22 @@ class Packager {
         artifactPaths.add(event.file);
       }
     });
+    this.disposeOnBuildFinish(() => this.tempDirManager.cleanup());
     const platformToTargets = await (0, _promise().executeFinally)(this.doBuild(), async () => {
       if (this.debugLogger.isEnabled) {
         await this.debugLogger.save(path.join(commonOutDirWithoutPossibleOsMacro, "builder-debug.yml"));
       }
 
-      await this.tempDirManager.cleanup();
+      const toDispose = this.toDispose.slice();
+      this.toDispose.length = 0;
+
+      for (const disposer of toDispose) {
+        await disposer().catch(e => {
+          _builderUtil().log.warn({
+            error: e
+          }, "cannot dispose");
+        });
+      }
     });
     return {
       outDir: commonOutDirWithoutPossibleOsMacro,
@@ -628,7 +634,7 @@ class Packager {
       const nameToTarget = new Map();
       platformToTarget.set(platform, nameToTarget);
 
-      for (const [arch, targetNames] of (0, _targetFactory().computeArchToTargetNamesMap)(archToType, packager.platformSpecificBuildOptions, platform)) {
+      for (const [arch, targetNames] of (0, _targetFactory().computeArchToTargetNamesMap)(archToType, packager, platform)) {
         if (this.cancellationToken.cancelled) {
           break;
         }
@@ -694,7 +700,7 @@ class Packager {
 
     const frameworkInfo = {
       version: this.framework.version,
-      useCustomDist: this.config.muonVersion == null
+      useCustomDist: true
     };
     const config = this.config;
 
@@ -711,7 +717,7 @@ class Packager {
     if (config.npmRebuild === false) {
       _builderUtil().log.info({
         reason: "npmRebuild is set to false"
-      }, "skipped app dependencies rebuild");
+      }, "skipped dependencies rebuild");
 
       return;
     }
@@ -736,18 +742,18 @@ class Packager {
     if (config.buildDependenciesFromSource === true && platform.nodeName !== process.platform) {
       _builderUtil().log.info({
         reason: "platform is different and buildDependenciesFromSource is set to true"
-      }, "skipped app dependencies rebuild");
+      }, "skipped dependencies rebuild");
     } else {
       await (0, _yarn().installOrRebuild)(config, this.appDir, {
         frameworkInfo,
         platform: platform.nodeName,
         arch: _builderUtil().Arch[arch],
-        productionDeps: this.productionDeps
+        productionDeps: this.getNodeDependencyInfo(null)
       });
     }
   }
 
-  afterPack(context) {
+  async afterPack(context) {
     const afterPack = (0, _platformPackager().resolveFunction)(this.config.afterPack, "afterPack");
     const handlers = this.afterPackHandlers.slice();
 
@@ -756,7 +762,9 @@ class Packager {
       handlers.push(afterPack);
     }
 
-    return _bluebirdLst().default.each(handlers, it => it(context));
+    for (const handler of handlers) {
+      await Promise.resolve(handler(context));
+    }
   }
 
 }
@@ -779,14 +787,15 @@ function createOutDirIfNeed(targetList, createdOutDirs) {
     }
   }
 
-  if (ourDirs.size > 0) {
-    return _bluebirdLst().default.map(Array.from(ourDirs).sort(), it => {
-      createdOutDirs.add(it);
-      return (0, _fsExtraP().ensureDir)(it);
-    });
+  if (ourDirs.size === 0) {
+    return Promise.resolve();
   }
 
-  return Promise.resolve();
+  return Promise.all(Array.from(ourDirs).sort().map(dir => {
+    return (0, _fsExtra().mkdirs)(dir).then(() => (0, _fsExtra().chmod)(dir, 0o755)
+    /* set explicitly */
+    ).then(() => createdOutDirs.add(dir));
+  }));
 }
 
 function getSafeEffectiveConfig(configuration) {

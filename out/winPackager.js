@@ -45,16 +45,6 @@ function _fs() {
   return data;
 }
 
-function _promise() {
-  const data = require("builder-util/out/promise");
-
-  _promise = function () {
-    return data;
-  };
-
-  return data;
-}
-
 function _crypto() {
   const data = require("crypto");
 
@@ -65,10 +55,10 @@ function _crypto() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -217,17 +207,9 @@ function _vm() {
   return data;
 }
 
-function _wine() {
-  const data = require("./wine");
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
 
-  _wine = function () {
-    return data;
-  };
-
-  return data;
-}
-
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -434,7 +416,7 @@ class WinPackager extends _platformPackager().PlatformPackager {
       }, logMessagePrefix);
     }
 
-    await this.doSign(Object.assign({}, signOptions, {
+    await this.doSign(Object.assign(Object.assign({}, signOptions), {
       cscInfo,
       options: Object.assign({}, this.platformSpecificBuildOptions)
     }));
@@ -497,7 +479,6 @@ class WinPackager extends _platformPackager().PlatformPackager {
       const timer = (0, _timer().time)("executable cache");
       const hash = (0, _crypto().createHash)("sha512");
       hash.update(config.electronVersion || "no electronVersion");
-      hash.update(config.muonVersion || "no muonVersion");
       hash.update(JSON.stringify(this.platformSpecificBuildOptions));
       hash.update(JSON.stringify(args));
       hash.update(this.platformSpecificBuildOptions.certificateSha1 || "no certificateSha1");
@@ -515,8 +496,7 @@ class WinPackager extends _platformPackager().PlatformPackager {
     const timer = (0, _timer().time)("wine&sign"); // rcedit crashed of executed using wine, resourcehacker works
 
     if (process.platform === "win32" || this.info.framework.name === "electron") {
-      const vendorPath = await (0, _windowsCodeSign().getSignVendorPath)();
-      await (0, _wine().execWine)(path.join(vendorPath, "rcedit-ia32.exe"), path.join(vendorPath, "rcedit-x64.exe"), args);
+      await (0, _builderUtil().executeAppBuilder)(["rcedit", "--args", JSON.stringify(args)]);
     }
 
     await this.sign(file);
@@ -556,7 +536,7 @@ class WinPackager extends _platformPackager().PlatformPackager {
       return;
     }
 
-    await _bluebirdLst().default.map((0, _fsExtraP().readdir)(packContext.appOutDir), file => {
+    await _bluebirdLst().default.map((0, _fsExtra().readdir)(packContext.appOutDir), file => {
       if (file === exeFileName) {
         return this.signAndEditResources(path.join(packContext.appOutDir, exeFileName), packContext.arch, packContext.outDir, path.basename(exeFileName, ".exe"), this.platformSpecificBuildOptions.requestedExecutionLevel);
       } else if (file.endsWith(".exe") || this.isSignDlls() && file.endsWith(".dll")) {
@@ -570,13 +550,11 @@ class WinPackager extends _platformPackager().PlatformPackager {
       return;
     }
 
-    const outResourcesDir = path.join(packContext.appOutDir, "resources", "app.asar.unpacked");
-    await _bluebirdLst().default.map((0, _promise().orIfFileNotExist)((0, _fsExtraP().readdir)(outResourcesDir), []), file => {
-      if (file.endsWith(".exe") || file.endsWith(".dll")) {
-        return this.sign(path.join(outResourcesDir, file));
-      } else {
-        return null;
-      }
+    const outResourcesDir = path.join(packContext.appOutDir, "resources", "app.asar.unpacked"); // noinspection JSUnusedLocalSymbols
+
+    const fileToSign = await (0, _fs().walk)(outResourcesDir, (file, stat) => stat.isDirectory() || file.endsWith(".exe") || file.endsWith(".dll"));
+    await _bluebirdLst().default.map(fileToSign, file => this.sign(file), {
+      concurrency: 4
     });
   }
 

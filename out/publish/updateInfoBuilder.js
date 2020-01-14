@@ -26,10 +26,10 @@ function _builderUtil() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -88,7 +88,9 @@ function _PublishManager() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -97,7 +99,7 @@ async function getReleaseInfo(packager) {
 
   if (releaseInfo.releaseNotes == null) {
     const releaseNotesFile = await packager.getResource(releaseInfo.releaseNotesFile, `release-notes-${packager.platform.buildConfigurationKey}.md`, `release-notes-${packager.platform.name}.md`, `release-notes-${packager.platform.nodeName}.md`, "release-notes.md");
-    const releaseNotes = releaseNotesFile == null ? null : await (0, _fsExtraP().readFile)(releaseNotesFile, "utf-8"); // to avoid undefined in the file, check for null
+    const releaseNotes = releaseNotesFile == null ? null : await (0, _fsExtra().readFile)(releaseNotesFile, "utf-8"); // to avoid undefined in the file, check for null
 
     if (releaseNotes != null) {
       releaseInfo.releaseNotes = releaseNotes;
@@ -206,7 +208,7 @@ async function createUpdateInfoTasks(event, _publishConfigs) {
     if (event.safeArtifactName != null && publishConfiguration.provider === "github") {
       const newFiles = info.files.slice();
       newFiles[0].url = event.safeArtifactName;
-      info = Object.assign({}, info, {
+      info = Object.assign(Object.assign({}, info), {
         files: newFiles,
         path: event.safeArtifactName
       });
@@ -302,7 +304,7 @@ async function writeUpdateInfoFiles(updateInfoFileTasks, packager) {
     }
 
     const fileContent = Buffer.from((0, _builderUtil().serializeToYaml)(task.info, false, true));
-    await (0, _fsExtraP().outputFile)(task.file, fileContent);
+    await (0, _fsExtra().outputFile)(task.file, fileContent);
     packager.dispatchArtifactCreated({
       file: task.file,
       fileContent,
@@ -323,7 +325,7 @@ async function writeOldMacInfo(publishConfig, outDir, dir, channel, createdFiles
 
   if (!createdFiles.has(updateInfoFile)) {
     createdFiles.add(updateInfoFile);
-    await (0, _fsExtraP().outputJson)(updateInfoFile, {
+    await (0, _fsExtra().outputJson)(updateInfoFile, {
       version,
       releaseDate: new Date().toISOString(),
       url: (0, _PublishManager().computeDownloadUrl)(publishConfig, packager.generateName2("zip", "mac", isGitHub), packager)

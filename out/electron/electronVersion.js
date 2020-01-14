@@ -27,10 +27,10 @@ function _nodeHttpExecutor() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -49,20 +49,20 @@ function _lazyVal() {
 
 var path = _interopRequireWildcard(require("path"));
 
-function semver() {
-  const data = _interopRequireWildcard(require("semver"));
+function _readConfigFile() {
+  const data = require("read-config-file");
 
-  semver = function () {
+  _readConfigFile = function () {
     return data;
   };
 
   return data;
 }
 
-function _readConfigFile() {
-  const data = require("read-config-file");
+function semver() {
+  const data = _interopRequireWildcard(require("semver"));
 
-  _readConfigFile = function () {
+  semver = function () {
     return data;
   };
 
@@ -79,9 +79,13 @@ function _config() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
 
-async function getElectronVersion(projectDir, config, projectMetadata = new (_lazyVal().Lazy)(() => (0, _readConfigFile().orNullIfFileNotExist)((0, _fsExtraP().readJson)(path.join(projectDir, "package.json"))))) {
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+const electronPackages = ["electron", "electron-prebuilt", "electron-prebuilt-compile"];
+
+async function getElectronVersion(projectDir, config, projectMetadata = new (_lazyVal().Lazy)(() => (0, _readConfigFile().orNullIfFileNotExist)((0, _fsExtra().readJson)(path.join(projectDir, "package.json"))))) {
   if (config == null) {
     config = await (0, _config().getConfig)(projectDir, null, null);
   }
@@ -94,9 +98,9 @@ async function getElectronVersion(projectDir, config, projectMetadata = new (_la
 }
 
 async function getElectronVersionFromInstalled(projectDir) {
-  for (const name of ["electron", "electron-prebuilt", "electron-prebuilt-compile"]) {
+  for (const name of electronPackages) {
     try {
-      return (await (0, _fsExtraP().readJson)(path.join(projectDir, "node_modules", name, "package.json"))).version;
+      return (await (0, _fsExtra().readJson)(path.join(projectDir, "node_modules", name, "package.json"))).version;
     } catch (e) {
       if (e.code !== "ENOENT") {
         _builderUtil().log.warn({
@@ -119,9 +123,11 @@ async function computeElectronVersion(projectDir, projectMetadata) {
     return result;
   }
 
-  const electronPrebuiltDep = findFromElectronPrebuilt((await projectMetadata.value));
+  const electronVersionFromMetadata = findFromPackageMetadata((await projectMetadata.value));
 
-  if (electronPrebuiltDep == null || electronPrebuiltDep === "latest") {
+  if (electronVersionFromMetadata === "latest") {
+    _builderUtil().log.warn("Electron version is set to \"latest\", but it is recommended to set it to some more restricted version range.");
+
     try {
       const releaseInfo = JSON.parse((await _nodeHttpExecutor().httpExecutor.request({
         hostname: "github.com",
@@ -135,20 +141,19 @@ async function computeElectronVersion(projectDir, projectMetadata) {
       _builderUtil().log.warn(e);
     }
 
-    throw new Error(`Cannot find electron dependency to get electron version in the '${path.join(projectDir, "package.json")}'`);
+    throw new (_builderUtil().InvalidConfigurationError)(`Cannot find electron dependency to get electron version in the '${path.join(projectDir, "package.json")}'`);
   }
 
-  const version = semver().coerce(electronPrebuiltDep);
-
-  if (version == null) {
-    throw new Error("cannot compute electron version");
+  if (electronVersionFromMetadata == null || !/^\d/.test(electronVersionFromMetadata)) {
+    const versionMessage = electronVersionFromMetadata == null ? "" : ` and version ("${electronVersionFromMetadata}") is not fixed in project`;
+    throw new (_builderUtil().InvalidConfigurationError)(`Cannot compute electron version from installed node modules - none of the possible electron modules are installed${versionMessage}.\nSee https://github.com/electron-userland/electron-builder/issues/3984#issuecomment-504968246`);
   }
 
-  return version.toString();
+  return semver().coerce(electronVersionFromMetadata).toString();
 }
 
-function findFromElectronPrebuilt(packageData) {
-  for (const name of ["electron", "electron-prebuilt", "electron-prebuilt-compile"]) {
+function findFromPackageMetadata(packageData) {
+  for (const name of electronPackages) {
     const devDependencies = packageData.devDependencies;
     let dep = devDependencies == null ? null : devDependencies[name];
 

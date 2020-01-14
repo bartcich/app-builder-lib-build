@@ -75,10 +75,10 @@ function ejs() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -157,7 +157,9 @@ function _targetUtil() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -166,7 +168,7 @@ const ELECTRON_BUILDER_UPGRADE_CODE_NS_UUID = _builderUtilRuntime().UUID.parse("
 const ROOT_DIR_ID = "APPLICATIONFOLDER";
 const ASSISTED_UI_FILE_NAME = "WixUI_Assisted.wxs";
 const projectTemplate = new (_lazyVal().Lazy)(async () => {
-  const template = (await (0, _fsExtraP().readFile)(path.join((0, _pathManager().getTemplatePath)("msi"), "template.xml"), "utf8")).replace(/{{/g, "<%").replace(/}}/g, "%>").replace(/\${([^}]+)}/g, "<%=$1%>");
+  const template = (await (0, _fsExtra().readFile)(path.join((0, _pathManager().getTemplatePath)("msi"), "template.xml"), "utf8")).replace(/{{/g, "<%").replace(/}}/g, "%>").replace(/\${([^}]+)}/g, "<%=$1%>");
   return ejs().compile(template);
 }); // WiX doesn't support Mono, so, dontnet462 is required to be installed for wine (preinstalled in our bundled wine)
 
@@ -201,17 +203,17 @@ class MsiTarget extends _core().Target {
     const projectFile = stageDir.getTempFile("project.wxs");
     const objectFiles = ["project.wixobj"];
     const uiFile = commonOptions.isAssisted ? stageDir.getTempFile(ASSISTED_UI_FILE_NAME) : null;
-    await (0, _fsExtraP().writeFile)(projectFile, (await this.writeManifest(appOutDir, arch, commonOptions)));
+    await (0, _fsExtra().writeFile)(projectFile, (await this.writeManifest(appOutDir, arch, commonOptions)));
 
     if (uiFile !== null) {
-      await (0, _fsExtraP().writeFile)(uiFile, (await (0, _fsExtraP().readFile)(path.join((0, _pathManager().getTemplatePath)("msi"), ASSISTED_UI_FILE_NAME), "utf8")));
+      await (0, _fsExtra().writeFile)(uiFile, (await (0, _fsExtra().readFile)(path.join((0, _pathManager().getTemplatePath)("msi"), ASSISTED_UI_FILE_NAME), "utf8")));
       objectFiles.push(ASSISTED_UI_FILE_NAME.replace(".wxs", ".wixobj"));
     } // noinspection SpellCheckingInspection
 
 
-    const vendorPath = await (0, _binDownload().getBinFromGithub)("wix", "4.0.0.5512.2", "/X5poahdCc3199Vt6AP7gluTlT1nxi9cbbHhZhCMEu+ngyP1LiBMn+oZX7QAZVaKeBMc2SjVp7fJqNLqsUnPNQ=="); // noinspection SpellCheckingInspection
+    const vendorPath = await (0, _binDownload().getBinFromUrl)("wix", "4.0.0.5512.2", "/X5poahdCc3199Vt6AP7gluTlT1nxi9cbbHhZhCMEu+ngyP1LiBMn+oZX7QAZVaKeBMc2SjVp7fJqNLqsUnPNQ=="); // noinspection SpellCheckingInspection
 
-    const candleArgs = ["-arch", arch === _builderUtil().Arch.ia32 ? "x86" : arch === _builderUtil().Arch.armv7l ? "arm" : "x64", `-dappDir=${vm.toVmFile(appOutDir)}`].concat(this.getCommonWixArgs());
+    const candleArgs = ["-arch", arch === _builderUtil().Arch.ia32 ? "x86" : arch === _builderUtil().Arch.arm64 ? "arm64" : "x64", `-dappDir=${vm.toVmFile(appOutDir)}`].concat(this.getCommonWixArgs());
     candleArgs.push("project.wxs");
 
     if (uiFile !== null) {
@@ -282,7 +284,7 @@ class MsiTarget extends _core().Target {
     const compression = this.packager.compression;
     const options = this.options;
     const iconPath = await this.packager.getIconPath();
-    return (await projectTemplate.value)(Object.assign({}, commonOptions, {
+    return (await projectTemplate.value)(Object.assign(Object.assign({}, commonOptions), {
       isCreateDesktopShortcut: commonOptions.isCreateDesktopShortcut !== _CommonWindowsInstallerConfiguration().DesktopShortcutCreationPolicy.NEVER,
       isRunAfterFinish: options.runAfterFinish !== false,
       iconPath: iconPath == null ? null : this.vm.toVmFile(iconPath),
@@ -369,7 +371,7 @@ class MsiTarget extends _core().Target {
         result += `${fileSpace}</File>`;
 
         if (hasMenuCategory) {
-          result += `<RemoveFolder Id="${startMenuShortcutDirectoryId}" On="uninstall"/>\n`;
+          result += `<RemoveFolder Id="${startMenuShortcutDirectoryId}" Directory="${startMenuShortcutDirectoryId}" On="uninstall"/>\n`;
         }
       } else {
         result += `/>`;

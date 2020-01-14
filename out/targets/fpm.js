@@ -15,16 +15,6 @@ function _zipBin() {
   return data;
 }
 
-function _appBuilderBin() {
-  const data = require("app-builder-bin");
-
-  _appBuilderBin = function () {
-    return data;
-  };
-
-  return data;
-}
-
 function _builderUtil() {
   const data = require("builder-util");
 
@@ -35,10 +25,52 @@ function _builderUtil() {
   return data;
 }
 
+function _fs() {
+  const data = require("builder-util/out/fs");
+
+  _fs = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function _fsExtra() {
+  const data = require("fs-extra");
+
+  _fsExtra = function () {
+    return data;
+  };
+
+  return data;
+}
+
+var path = _interopRequireWildcard(require("path"));
+
 function _appInfo() {
   const data = require("../appInfo");
 
   _appInfo = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function _core() {
+  const data = require("../core");
+
+  _core = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function errorMessages() {
+  const data = _interopRequireWildcard(require("../errorMessages"));
+
+  errorMessages = function () {
     return data;
   };
 
@@ -59,48 +91,6 @@ function _bundledTool() {
   const data = require("../util/bundledTool");
 
   _bundledTool = function () {
-    return data;
-  };
-
-  return data;
-}
-
-function _fs() {
-  const data = require("builder-util/out/fs");
-
-  _fs = function () {
-    return data;
-  };
-
-  return data;
-}
-
-function _fsExtraP() {
-  const data = require("fs-extra-p");
-
-  _fsExtraP = function () {
-    return data;
-  };
-
-  return data;
-}
-
-var path = _interopRequireWildcard(require("path"));
-
-function _core() {
-  const data = require("../core");
-
-  _core = function () {
-    return data;
-  };
-
-  return data;
-}
-
-function errorMessages() {
-  const data = _interopRequireWildcard(require("../errorMessages"));
-
-  errorMessages = function () {
     return data;
   };
 
@@ -147,7 +137,9 @@ function _tools() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 class FpmTarget extends _core().Target {
   constructor(name, packager, helper, outDir) {
@@ -155,7 +147,7 @@ class FpmTarget extends _core().Target {
     this.packager = packager;
     this.helper = helper;
     this.outDir = outDir;
-    this.options = Object.assign({}, this.packager.platformSpecificBuildOptions, this.packager.config[this.name]);
+    this.options = Object.assign(Object.assign({}, this.packager.platformSpecificBuildOptions), this.packager.config[this.name]);
     this.scriptFiles = this.createScripts();
   }
 
@@ -217,7 +209,6 @@ class FpmTarget extends _core().Target {
   }
 
   async build(appOutDir, arch) {
-    const fpmMetaInfoOptions = await this.computeFpmMetaInfoOptions();
     const target = this.name; // tslint:disable:no-invalid-template-strings
 
     let nameFormat = "${name}-${version}-${arch}.${ext}";
@@ -241,66 +232,52 @@ class FpmTarget extends _core().Target {
     await (0, _fs().unlinkIfExists)(artifactPath);
 
     if (packager.packagerOptions.prepackaged != null) {
-      await (0, _fsExtraP().ensureDir)(this.outDir);
+      await (0, _fsExtra().ensureDir)(this.outDir);
     }
 
     const scripts = await this.scriptFiles;
     const appInfo = packager.appInfo;
     const options = this.options;
     const synopsis = options.synopsis;
-    const args = ["-s", "dir", "-t", target, "--architecture", target === "pacman" && arch === _builderUtil().Arch.ia32 ? "i686" : (0, _builderUtil().toLinuxArchString)(arch), "--name", appInfo.linuxPackageName, "--force", "--after-install", scripts[0], "--after-remove", scripts[1], "--description", (0, _appInfo().smarten)(target === "rpm" ? this.helper.getDescription(options) : `${synopsis || ""}\n ${this.helper.getDescription(options)}`), "--version", appInfo.version, "--package", artifactPath];
-    (0, _appBuilder().objectToArgs)(args, fpmMetaInfoOptions);
-
-    if (_builderUtil().debug.enabled) {
-      args.push("--log", "debug", "--debug");
-    }
-
+    const args = ["--architecture", (0, _builderUtil().toLinuxArchString)(arch, target), "--name", appInfo.linuxPackageName, "--after-install", scripts[0], "--after-remove", scripts[1], "--description", (0, _appInfo().smarten)(target === "rpm" ? this.helper.getDescription(options) : `${synopsis || ""}\n ${this.helper.getDescription(options)}`), "--version", appInfo.version, "--package", artifactPath];
+    (0, _appBuilder().objectToArgs)(args, (await this.computeFpmMetaInfoOptions()));
     const packageCategory = options.packageCategory;
 
     if (packageCategory != null) {
       args.push("--category", packageCategory);
     }
 
-    const compression = options.compression;
-
     if (target === "deb") {
-      args.push("--deb-compression", compression || "xz");
       (0, _builderUtil().use)(options.priority, it => args.push("--deb-priority", it));
     } else if (target === "rpm") {
-      args.push("--rpm-compression", (compression === "xz" ? "xzmt" : compression) || "xzmt");
-      args.push("--rpm-os", "linux");
-
       if (synopsis != null) {
         args.push("--rpm-summary", (0, _appInfo().smarten)(synopsis));
       }
+    }
+
+    const fpmConfiguration = {
+      args,
+      target
+    };
+
+    if (options.compression != null) {
+      fpmConfiguration.compression = options.compression;
     } // noinspection JSDeprecatedSymbols
 
 
-    let depends = options.depends || packager.platformSpecificBuildOptions.depends;
+    const depends = options.depends;
 
-    if (depends == null) {
-      if (target === "deb") {
-        depends = ["gconf2", "gconf-service", "libnotify4", "libappindicator1", "libxtst6", "libnss3", "libxss1"];
-      } else if (target === "pacman") {
-        // noinspection SpellCheckingInspection
-        depends = ["c-ares", "ffmpeg", "gtk3", "http-parser", "libevent", "libvpx", "libxslt", "libxss", "minizip", "nss", "re2", "snappy", "libnotify", "libappindicator-gtk2", "libappindicator-gtk3", "libappindicator-sharp"];
-      } else if (target === "rpm") {
-        // noinspection SpellCheckingInspection
-        depends = ["libnotify", "libappindicator", "libXScrnSaver"];
+    if (depends != null) {
+      if (Array.isArray(depends)) {
+        fpmConfiguration.customDepends = depends;
       } else {
-        depends = [];
+        // noinspection SuspiciousTypeOfGuard
+        if (typeof depends === "string") {
+          fpmConfiguration.customDepends = [depends];
+        } else {
+          throw new Error(`depends must be Array or String, but specified as: ${depends}`);
+        }
       }
-    } else if (!Array.isArray(depends)) {
-      // noinspection SuspiciousTypeOfGuard
-      if (typeof depends === "string") {
-        depends = [depends];
-      } else {
-        throw new Error(`depends must be Array or String, but specified as: ${depends}`);
-      }
-    }
-
-    for (const dep of depends) {
-      args.push("--depends", dep);
     }
 
     (0, _builderUtil().use)(packager.info.metadata.license, it => args.push("--license", it));
@@ -314,6 +291,12 @@ class FpmTarget extends _core().Target {
       args.push(`${icon.file}=/usr/share/icons/hicolor/${sizeName}/apps/${packager.executableName}${extWithDot}`);
     }
 
+    const mimeTypeFilePath = await this.helper.mimeTypeFiles;
+
+    if (mimeTypeFilePath != null) {
+      args.push(`${mimeTypeFilePath}=/usr/share/mime/packages/${packager.executableName}.xml`);
+    }
+
     const desktopFilePath = await this.helper.writeDesktopEntry(this.options);
     args.push(`${desktopFilePath}=/usr/share/applications/${packager.executableName}.desktop`);
 
@@ -321,11 +304,9 @@ class FpmTarget extends _core().Target {
       return;
     }
 
-    const env = Object.assign({}, process.env, {
-      FPM_COMPRESS_PROGRAM: _appBuilderBin().appBuilderPath,
+    const env = Object.assign(Object.assign({}, process.env), {
       SZA_PATH: _zipBin().path7za,
-      SZA_COMPRESSION_LEVEL: packager.compression === "store" ? "0" : "9",
-      SZA_ARCHIVE_TYPE: "xz"
+      SZA_COMPRESSION_LEVEL: packager.compression === "store" ? "0" : "9"
     }); // rpmbuild wants directory rpm with some default config files. Even if we can use dylibbundler, path to such config files are not changed (we need to replace in the binary)
     // so, for now, brew install rpm is still required.
 
@@ -337,7 +318,7 @@ class FpmTarget extends _core().Target {
       });
     }
 
-    await (0, _builderUtil().exec)((await _tools().fpmPath.value), args, {
+    await (0, _builderUtil().executeAppBuilder)(["fpm", "--configuration", JSON.stringify(fpmConfiguration)], undefined, {
       env
     });
     await packager.dispatchArtifactCreated(artifactPath, this, arch);
@@ -357,7 +338,7 @@ async function writeConfigFile(tmpDir, templatePath, options) {
     }
   }
 
-  const config = (await (0, _fsExtraP().readFile)(templatePath, "utf8")).replace(/\${([a-zA-Z]+)}/g, replacer).replace(/<%=([a-zA-Z]+)%>/g, (match, p1) => {
+  const config = (await (0, _fsExtra().readFile)(templatePath, "utf8")).replace(/\${([a-zA-Z]+)}/g, replacer).replace(/<%=([a-zA-Z]+)%>/g, (match, p1) => {
     _builderUtil().log.warn("<%= varName %> is deprecated, please use ${varName} instead");
 
     return replacer(match, p1.trim());
@@ -365,7 +346,7 @@ async function writeConfigFile(tmpDir, templatePath, options) {
   const outputPath = await tmpDir.getTempFile({
     suffix: path.basename(templatePath, ".tpl")
   });
-  await (0, _fsExtraP().outputFile)(outputPath, config);
+  await (0, _fsExtra().outputFile)(outputPath, config);
   return outputPath;
 } 
 // __ts-babel@6.0.4

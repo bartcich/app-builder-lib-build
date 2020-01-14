@@ -40,10 +40,10 @@ function _fs() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -92,16 +92,6 @@ function _fileTransformer() {
   return data;
 }
 
-function _appBuilder() {
-  const data = require("./appBuilder");
-
-  _appBuilder = function () {
-    return data;
-  };
-
-  return data;
-}
-
 function _AppFileWalker() {
   const data = require("./AppFileWalker");
 
@@ -122,7 +112,9 @@ function _NodeModuleCopyHelper() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -145,15 +137,17 @@ function getDestinationPath(file, fileSet) {
       // hoisted node_modules
       // not lastIndexOf, to ensure that nested module (top-level module depends on) copied to parent node_modules, not to top-level directory
       // project https://github.com/angexis/punchcontrol/commit/cf929aba55c40d0d8901c54df7945e1d001ce022
-      const index = file.indexOf(_fileTransformer().NODE_MODULES_PATTERN);
+      let index = file.indexOf(_fileTransformer().NODE_MODULES_PATTERN);
+
+      if (index < 0 && file.endsWith(`${path.sep}node_modules`)) {
+        index = file.length - 13;
+      }
 
       if (index < 0) {
         throw new Error(`File "${file}" not under the source directory "${fileSet.src}"`);
       }
 
-      return dest + file.substring(index + 1
-      /* leading slash */
-      );
+      return dest + file.substring(index);
     }
   }
 }
@@ -183,7 +177,7 @@ async function copyAppFiles(fileSet, packager, transformer) {
     if (stat.isSymbolicLink()) {
       links.push({
         file: destinationFile,
-        link: await (0, _fsExtraP().readlink)(sourceFile)
+        link: await (0, _fsExtra().readlink)(sourceFile)
       });
       continue;
     }
@@ -192,7 +186,7 @@ async function copyAppFiles(fileSet, packager, transformer) {
 
     if (!createdParentDirs.has(fileParent)) {
       createdParentDirs.add(fileParent);
-      await (0, _fsExtraP().ensureDir)(fileParent);
+      await (0, _fsExtra().ensureDir)(fileParent);
     }
 
     taskManager.addTask(fileCopier.copy(sourceFile, destinationFile, stat));
@@ -207,7 +201,7 @@ async function copyAppFiles(fileSet, packager, transformer) {
   }
 
   if (links.length > 0) {
-    await _bluebirdLst().default.map(links, it => (0, _fsExtraP().symlink)(it.link, it.file), _fs().CONCURRENCY);
+    await _bluebirdLst().default.map(links, it => (0, _fsExtra().symlink)(it.link, it.file), _fs().CONCURRENCY);
   }
 } // used only for ASAR, if no asar, file transformed on the fly
 
@@ -316,49 +310,34 @@ function validateFileSet(fileSet) {
 
 
 async function computeNodeModuleFileSets(platformPackager, mainMatcher) {
-  const args = ["node-dep-tree", "--dir", platformPackager.info.appDir];
+  const deps = await platformPackager.info.getNodeDependencyInfo(platformPackager.platform).value;
+  const nodeModuleExcludedExts = getNodeModuleExcludedExts(platformPackager); // serial execution because copyNodeModules is concurrent and so, no need to increase queue/pressure
 
-  if (platformPackager.info.framework.getExcludedDependencies != null) {
-    const excludedDependencies = platformPackager.info.framework.getExcludedDependencies(platformPackager.platform);
+  const result = new Array();
+  let index = 0;
 
-    if (excludedDependencies != null) {
-      for (const name of excludedDependencies) {
-        args.push("--exclude-dep", name);
-      }
-    }
-  }
-
-  const deps = await (0, _appBuilder().executeAppBuilderAsJson)(args);
-  const nodeModuleExcludedExts = getNodeModuleExcludedExts(platformPackager); // mapSeries instead of map because copyNodeModules is concurrent and so, no need to increase queue/pressure
-
-  return await _bluebirdLst().default.mapSeries(deps, async info => {
+  for (const info of deps) {
     const source = info.dir;
-    let destination;
-
-    if (source.length > mainMatcher.from.length && source.startsWith(mainMatcher.from) && source[mainMatcher.from.length] === path.sep) {
-      destination = getDestinationPath(source, {
-        src: mainMatcher.from,
-        destination: mainMatcher.to,
-        files: [],
-        metadata: null
-      });
-    } else {
-      destination = mainMatcher.to + path.sep + "node_modules";
-    } // use main matcher patterns, so, user can exclude some files in such hoisted node modules
+    const destination = getDestinationPath(source, {
+      src: mainMatcher.from,
+      destination: mainMatcher.to,
+      files: [],
+      metadata: null
+    }); // use main matcher patterns, so, user can exclude some files in such hoisted node modules
     // source here includes node_modules, but pattern base should be without because users expect that pattern "!node_modules/loot-core/src{,/**/*}" will work
-
 
     const matcher = new (_fileMatcher().FileMatcher)(path.dirname(source), destination, mainMatcher.macroExpander, mainMatcher.patterns);
     const copier = new (_NodeModuleCopyHelper().NodeModuleCopyHelper)(matcher, platformPackager.info);
-    const names = info.deps;
-    const files = await copier.collectNodeModules(source, names, nodeModuleExcludedExts);
-    return validateFileSet({
+    const files = await copier.collectNodeModules(source, info.deps.map(it => it.name), nodeModuleExcludedExts);
+    result[index++] = validateFileSet({
       src: source,
       destination,
       files,
       metadata: copier.metadata
     });
-  });
+  }
+
+  return result;
 }
 
 async function compileUsingElectronCompile(mainFileSet, packager) {
@@ -369,7 +348,7 @@ async function compileUsingElectronCompile(mainFileSet, packager) {
   });
   const cacheDir = path.join(electronCompileCache, ".cache"); // clear and create cache dir
 
-  await (0, _fsExtraP().ensureDir)(cacheDir);
+  await (0, _fsExtra().ensureDir)(cacheDir);
   const compilerHost = await (0, _fileTransformer().createElectronCompilerHost)(mainFileSet.src, cacheDir);
   const nextSlashIndex = mainFileSet.src.length + 1; // pre-compute electron-compile to cache dir - we need to process only subdirectories, not direct files of app dir
 

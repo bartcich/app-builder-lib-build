@@ -46,10 +46,10 @@ function _promise() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -58,7 +58,9 @@ function _fsExtraP() {
 
 var path = _interopRequireWildcard(require("path"));
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -74,7 +76,7 @@ class BuildCacheManager {
 
   async copyIfValid(digest) {
     this.newDigest = digest;
-    this.cacheInfo = await (0, _promise().orNullIfFileNotExist)((0, _fsExtraP().readJson)(this.cacheInfoFile));
+    this.cacheInfo = await (0, _promise().orNullIfFileNotExist)((0, _fsExtra().readJson)(this.cacheInfoFile));
     const oldDigest = this.cacheInfo == null ? null : this.cacheInfo.executableDigest;
 
     if (oldDigest !== digest) {
@@ -123,8 +125,8 @@ class BuildCacheManager {
     }
 
     try {
-      await (0, _fsExtraP().ensureDir)(this.cacheDir);
-      await Promise.all([(0, _fsExtraP().writeJson)(this.cacheInfoFile, this.cacheInfo), (0, _fs().copyFile)(this.executableFile, this.cacheFile, false)]);
+      await (0, _fsExtra().ensureDir)(this.cacheDir);
+      await Promise.all([(0, _fsExtra().writeJson)(this.cacheInfoFile, this.cacheInfo), (0, _fs().copyFile)(this.executableFile, this.cacheFile, false)]);
     } catch (e) {
       _builderUtil().log.warn({
         error: e.stack || e
@@ -139,7 +141,7 @@ BuildCacheManager.VERSION = "0";
 
 async function digest(hash, files) {
   // do not use pipe - better do bulk file read (https://github.com/yarnpkg/yarn/commit/7a63e0d23c46a4564bc06645caf8a59690f04d01)
-  for (const content of await _bluebirdLst().default.map(files, it => (0, _fsExtraP().readFile)(it))) {
+  for (const content of await _bluebirdLst().default.map(files, it => (0, _fsExtra().readFile)(it))) {
     hash.update(content);
   }
 

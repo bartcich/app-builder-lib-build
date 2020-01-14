@@ -3,13 +3,14 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.getMacOsVersion = getMacOsVersion;
+exports.isMacOsHighSierra = isMacOsHighSierra;
 exports.isMacOsSierra = isMacOsSierra;
+exports.isMacOsCatalina = isMacOsCatalina;
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -46,10 +47,22 @@ function _log() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _os() {
+  const data = require("os");
+
+  _os = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 const macOsVersion = new (_lazyVal().Lazy)(async () => {
-  const file = await (0, _fsExtraP().readFile)("/System/Library/CoreServices/SystemVersion.plist", "utf8");
+  const file = await (0, _fsExtra().readFile)("/System/Library/CoreServices/SystemVersion.plist", "utf8");
   const matches = /<key>ProductVersion<\/key>[\s\S]*<string>([\d.]+)<\/string>/.exec(file);
 
   if (!matches) {
@@ -71,12 +84,17 @@ async function isOsVersionGreaterThanOrEqualTo(input) {
   return semver().gte((await macOsVersion.value), clean(input));
 }
 
-function getMacOsVersion() {
-  return macOsVersion.value;
+function isMacOsHighSierra() {
+  // 17.7.0 === 10.13.6
+  return process.platform === "darwin" && semver().gte((0, _os().release)(), "17.7.0");
 }
 
 async function isMacOsSierra() {
   return process.platform === "darwin" && (await isOsVersionGreaterThanOrEqualTo("10.12.0"));
+}
+
+function isMacOsCatalina() {
+  return process.platform === "darwin" && semver().gte((0, _os().release)(), "19.0.0");
 } 
 // __ts-babel@6.0.4
 //# sourceMappingURL=macosVersion.js.map

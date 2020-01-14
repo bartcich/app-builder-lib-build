@@ -10,17 +10,17 @@ export declare class AppInfo {
     readonly productName: string;
     readonly productFilename: string;
     constructor(info: Packager, buildVersion: string | null | undefined, platformSpecificOptions?: PlatformSpecificBuildOptions | null);
-    readonly channel: string | null;
+    get channel(): string | null;
     getVersionInWeirdWindowsForm(isSetBuildNumber?: boolean): string;
-    private readonly notNullDevMetadata;
-    readonly companyName: string | null;
-    readonly id: string;
-    readonly macBundleIdentifier: string;
-    readonly name: string;
-    readonly linuxPackageName: string;
-    readonly sanitizedName: string;
-    readonly updaterCacheDirName: string;
-    readonly copyright: string;
+    private get notNullDevMetadata();
+    get companyName(): string | null;
+    get id(): string;
+    get macBundleIdentifier(): string;
+    get name(): string;
+    get linuxPackageName(): string;
+    get sanitizedName(): string;
+    get updaterCacheDirName(): string;
+    get copyright(): string;
     computePackageUrl(): Promise<string | null>;
 }
 export declare function smarten(s: string): string;

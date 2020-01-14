@@ -26,6 +26,16 @@ function _fs() {
   return data;
 }
 
+function _appBuilder() {
+  const data = require("../util/appBuilder");
+
+  _appBuilder = function () {
+    return data;
+  };
+
+  return data;
+}
+
 function _license() {
   const data = require("../util/license");
 
@@ -36,10 +46,10 @@ function _license() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -47,16 +57,6 @@ function _fsExtraP() {
 }
 
 var path = _interopRequireWildcard(require("path"));
-
-function _plist() {
-  const data = require("plist");
-
-  _plist = function () {
-    return data;
-  };
-
-  return data;
-}
 
 function _appInfo() {
   const data = require("../appInfo");
@@ -88,7 +88,9 @@ function _core() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 const certType = "Developer ID Installer"; // http://www.shanekirk.com/2013/10/creating-flat-packages-in-osx/
 // to use --scripts, we must build .app bundle separately using pkgbuild
@@ -119,26 +121,26 @@ class PkgTarget extends _core().Target {
       file: artifactPath,
       arch
     });
-    const keychainName = (await packager.codeSigningInfo.value).keychainName;
+    const keychainFile = (await packager.codeSigningInfo.value).keychainFile;
     const appOutDir = this.outDir; // https://developer.apple.com/library/content/documentation/DeveloperTools/Reference/DistributionDefinitionRef/Chapters/Distribution_XML_Ref.html
 
     const distInfoFile = path.join(appOutDir, "distribution.xml");
     const innerPackageFile = path.join(appOutDir, `${(0, _appInfo().filterCFBundleIdentifier)(appInfo.id)}.pkg`);
     const componentPropertyListFile = path.join(appOutDir, `${(0, _appInfo().filterCFBundleIdentifier)(appInfo.id)}.plist`);
-    const identity = (await Promise.all([(0, _macCodeSign().findIdentity)(certType, options.identity || packager.platformSpecificBuildOptions.identity, keychainName), this.customizeDistributionConfiguration(distInfoFile, appPath), this.buildComponentPackage(appPath, componentPropertyListFile, innerPackageFile)]))[0];
+    const identity = (await Promise.all([(0, _macCodeSign().findIdentity)(certType, options.identity || packager.platformSpecificBuildOptions.identity, keychainFile), this.customizeDistributionConfiguration(distInfoFile, appPath), this.buildComponentPackage(appPath, componentPropertyListFile, innerPackageFile)]))[0];
 
     if (identity == null && packager.forceCodeSigning) {
       throw new Error(`Cannot find valid "${certType}" to sign standalone installer, please see https://electron.build/code-signing`);
     }
 
-    const args = prepareProductBuildArgs(identity, keychainName);
+    const args = prepareProductBuildArgs(identity, keychainFile);
     args.push("--distribution", distInfoFile);
     args.push(artifactPath);
     (0, _builderUtil().use)(options.productbuild, it => args.push(...it));
     await (0, _builderUtil().exec)("productbuild", args, {
       cwd: appOutDir
     });
-    await Promise.all([(0, _fsExtraP().unlink)(innerPackageFile), (0, _fsExtraP().unlink)(distInfoFile)]);
+    await Promise.all([(0, _fsExtra().unlink)(innerPackageFile), (0, _fsExtra().unlink)(distInfoFile)]);
     await packager.dispatchArtifactCreated(artifactPath, this, arch, packager.computeSafeArtifactName(artifactName, "pkg", arch));
   }
 
@@ -147,7 +149,18 @@ class PkgTarget extends _core().Target {
       cwd: this.outDir
     });
     const options = this.options;
-    let distInfo = await (0, _fsExtraP().readFile)(distInfoFile, "utf-8");
+    let distInfo = await (0, _fsExtra().readFile)(distInfoFile, "utf-8");
+
+    if (options.mustClose != null && options.mustClose.length !== 0) {
+      const startContent = `    <pkg-ref id="${this.packager.appInfo.id}">\n        <must-close>\n`;
+      const endContent = "        </must-close>\n    </pkg-ref>\n</installer-gui-script>";
+      let mustCloseContent = "";
+      options.mustClose.forEach(appId => {
+        mustCloseContent += `            <app id="${appId}"/>\n`;
+      });
+      distInfo = distInfo.replace("</installer-gui-script>", `${startContent}${mustCloseContent}${endContent}`);
+    }
+
     const insertIndex = distInfo.lastIndexOf("</installer-gui-script>");
     distInfo = distInfo.substring(0, insertIndex) + `    <domains enable_anywhere="${options.allowAnywhere}" enable_currentUserHome="${options.allowCurrentUserHome}" enable_localSystem="${options.allowRootDirectory}" />\n` + distInfo.substring(insertIndex);
 
@@ -181,7 +194,7 @@ class PkgTarget extends _core().Target {
     }
 
     (0, _builderUtil().debug)(distInfo);
-    await (0, _fsExtraP().writeFile)(distInfoFile, distInfo);
+    await (0, _fsExtra().writeFile)(distInfoFile, distInfo);
   }
 
   async buildComponentPackage(appPath, propertyListOutputFile, packageOutputFile) {
@@ -190,7 +203,7 @@ class PkgTarget extends _core().Target {
 
     await (0, _builderUtil().exec)("pkgbuild", ["--analyze", "--root", rootPath, propertyListOutputFile]); // process the template plist
 
-    const plistInfo = (0, _plist().parse)((await (0, _fsExtraP().readFile)(propertyListOutputFile, "utf8")));
+    const plistInfo = (await (0, _appBuilder().executeAppBuilderAsJson)(["decode-plist", "-f", propertyListOutputFile]))[0].filter(it => it.RootRelativeBundlePath !== "Electron.dSYM");
 
     if (plistInfo.length > 0) {
       const packageInfo = plistInfo[0]; // ChildBundles lists all of electron binaries within the .app.
@@ -215,7 +228,9 @@ class PkgTarget extends _core().Target {
         packageInfo.BundleOverwriteAction = options.overwriteAction;
       }
 
-      await (0, _fsExtraP().writeFile)(propertyListOutputFile, (0, _plist().build)(plistInfo));
+      await (0, _appBuilder().executeAppBuilderAndWriteJson)(["encode-plist"], {
+        [propertyListOutputFile]: plistInfo
+      });
     } // now build the package
 
 

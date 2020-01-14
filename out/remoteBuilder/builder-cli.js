@@ -1,9 +1,9 @@
 "use strict";
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -22,7 +22,19 @@ function _() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _builderUtil() {
+  const data = require("builder-util");
+
+  _builderUtil = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 if (process.env.BUILDER_REMOVE_STAGE_EVEN_IF_DEBUG == null) {
   process.env.BUILDER_REMOVE_STAGE_EVEN_IF_DEBUG = "true";
@@ -30,35 +42,35 @@ if (process.env.BUILDER_REMOVE_STAGE_EVEN_IF_DEBUG == null) {
 
 async function doBuild(data) {
   if (process.env.APP_BUILDER_TMP_DIR == null) {
-    throw new Error("Env APP_BUILDER_TMP_DIR must be set for builder process");
+    throw new (_builderUtil().InvalidConfigurationError)("Env APP_BUILDER_TMP_DIR must be set for builder process");
   }
 
   const projectDir = process.env.PROJECT_DIR;
 
   if (projectDir == null) {
-    throw new Error("Env PROJECT_DIR must be set for builder process");
+    throw new (_builderUtil().InvalidConfigurationError)("Env PROJECT_DIR must be set for builder process");
   }
 
   const targets = data.targets;
 
   if (data.platform == null) {
-    throw new Error("platform not specified");
+    throw new (_builderUtil().InvalidConfigurationError)("platform not specified");
   }
 
   if (targets == null) {
-    throw new Error("targets path not specified");
+    throw new (_builderUtil().InvalidConfigurationError)("targets path not specified");
   }
 
   if (!Array.isArray(targets)) {
-    throw new Error("targets must be array of target name");
+    throw new (_builderUtil().InvalidConfigurationError)("targets must be array of target name");
   }
 
   const infoFile = projectDir + path.sep + "info.json";
-  const info = await (0, _fsExtraP().readJson)(infoFile);
+  const info = await (0, _fsExtra().readJson)(infoFile);
   const projectOutDir = process.env.PROJECT_OUT_DIR;
 
   if (projectDir == null) {
-    throw new Error("Env PROJECT_OUT_DIR must be set for builder process");
+    throw new (_builderUtil().InvalidConfigurationError)("Env PROJECT_OUT_DIR must be set for builder process");
   } // yes, for now we expect the only target
 
 
@@ -95,7 +107,7 @@ async function doBuild(data) {
   }; // _build method expects final effective configuration - packager.options.config is ignored
 
 
-  await packager._build(Object.assign({}, info.configuration, {
+  await packager._build(Object.assign(Object.assign({}, info.configuration), {
     publish: null,
     beforeBuild: null,
     afterPack: null,
@@ -108,12 +120,12 @@ async function doBuild(data) {
     }
   }), info.metadata, info.devMetadata, info.repositoryInfo); // writeJson must be not used because it adds unwanted \n as last file symbol
 
-  await (0, _fsExtraP().writeFile)(path.join(process.env.APP_BUILDER_TMP_DIR, "__build-result.json"), JSON.stringify(artifacts));
+  await (0, _fsExtra().writeFile)(path.join(process.env.APP_BUILDER_TMP_DIR, "__build-result.json"), JSON.stringify(artifacts));
 }
 
 doBuild(JSON.parse(process.argv[2])).catch(error => {
   process.exitCode = 0;
-  return (0, _fsExtraP().writeFile)(path.join(process.env.APP_BUILDER_TMP_DIR, "__build-result.json"), (error.stack || error).toString());
+  return (0, _fsExtra().writeFile)(path.join(process.env.APP_BUILDER_TMP_DIR, "__build-result.json"), (error.stack || error).toString());
 }); 
 // __ts-babel@6.0.4
 //# sourceMappingURL=builder-cli.js.map

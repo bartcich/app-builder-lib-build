@@ -15,10 +15,10 @@ function _builderUtil() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -87,7 +87,9 @@ function _targetUtil() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 // https://unix.stackexchange.com/questions/375191/append-to-sub-directory-inside-squashfs-file
 class AppImageTarget extends _core().Target {
@@ -96,8 +98,7 @@ class AppImageTarget extends _core().Target {
     this.packager = packager;
     this.helper = helper;
     this.outDir = outDir;
-    this.options = Object.assign({}, this.packager.platformSpecificBuildOptions, this.packager.config[this.name]); // we add X-AppImage-BuildId to ensure that new desktop file will be installed
-
+    this.options = Object.assign(Object.assign({}, this.packager.platformSpecificBuildOptions), this.packager.config[this.name]);
     this.desktopEntry = new (_lazyVal().Lazy)(() => helper.computeDesktopEntry(this.options, "AppRun", {
       "X-AppImage-Version": `${packager.appInfo.buildVersion}`
     }));
@@ -109,7 +110,7 @@ class AppImageTarget extends _core().Target {
     // https://github.com/electron-userland/electron-builder/issues/1726
     // tslint:disable-next-line:no-invalid-template-strings
 
-    const artifactName = packager.expandArtifactBeautyNamePattern(options, "AppImage", arch);
+    const artifactName = packager.expandArtifactNamePattern(options, "AppImage", arch);
     const artifactPath = path.join(this.outDir, artifactName);
     await packager.info.callArtifactBuildStarted({
       targetPresentableName: "AppImage",
@@ -124,7 +125,7 @@ class AppImageTarget extends _core().Target {
     const publishConfig = c[2];
 
     if (publishConfig != null) {
-      await (0, _fsExtraP().outputFile)(path.join(packager.getResourcesDir(stageDir.dir), "app-update.yml"), (0, _builderUtil().serializeToYaml)(publishConfig));
+      await (0, _fsExtra().outputFile)(path.join(packager.getResourcesDir(stageDir.dir), "app-update.yml"), (0, _builderUtil().serializeToYaml)(publishConfig));
     }
 
     if (this.packager.packagerOptions.effectiveOptionComputed != null && (await this.packager.packagerOptions.effectiveOptionComputed({
@@ -135,6 +136,7 @@ class AppImageTarget extends _core().Target {
 
     const args = ["appimage", "--stage", stageDir.dir, "--arch", _builderUtil().Arch[arch], "--output", artifactPath, "--app", appOutDir, "--configuration", JSON.stringify(Object.assign({
       productName: this.packager.appInfo.productName,
+      productFilename: this.packager.appInfo.productFilename,
       desktopEntry: c[0],
       executableName: this.packager.executableName,
       icons: c[1],

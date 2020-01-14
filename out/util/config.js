@@ -28,10 +28,10 @@ function _fs() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -70,9 +70,13 @@ function _rectCra() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
 
-// https://github.com/electron-userland/electron-builder/issues/1847
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+const validateSchema = require("@develar/schema-utils"); // https://github.com/electron-userland/electron-builder/issues/1847
+
+
 function mergePublish(config, configFromOptions) {
   // if config from disk doesn't have publish (or object), no need to handle, it will be simply merged by deepAssign
   const publish = Array.isArray(config.publish) ? configFromOptions.publish : null;
@@ -97,7 +101,7 @@ function mergePublish(config, configFromOptions) {
   }
 }
 
-async function getConfig(projectDir, configPath, configFromOptions, packageMetadata = new (_lazyVal().Lazy)(() => (0, _readConfigFile().orNullIfFileNotExist)((0, _fsExtraP().readJson)(path.join(projectDir, "package.json"))))) {
+async function getConfig(projectDir, configPath, configFromOptions, packageMetadata = new (_lazyVal().Lazy)(() => (0, _readConfigFile().orNullIfFileNotExist)((0, _fsExtra().readJson)(path.join(projectDir, "package.json"))))) {
   const configRequest = {
     packageKey: "build",
     configFilename: "electron-builder",
@@ -279,7 +283,7 @@ function getDefaultConfig() {
   };
 }
 
-const schemeDataPromise = new (_lazyVal().Lazy)(() => (0, _fsExtraP().readJson)(path.join(__dirname, "..", "..", "scheme.json")));
+const schemeDataPromise = new (_lazyVal().Lazy)(() => (0, _fsExtra().readJson)(path.join(__dirname, "..", "..", "scheme.json")));
 
 async function validateConfig(config, debugLogger) {
   const extraMetadata = config.extraMetadata;
@@ -292,26 +296,43 @@ async function validateConfig(config, debugLogger) {
     if (extraMetadata.directories != null) {
       throw new (_builderUtil().InvalidConfigurationError)(`--em.directories is deprecated, please specify as -c.directories"`);
     }
-  } // noinspection JSDeprecatedSymbols
-
-
-  if (config.npmSkipBuildFromSource === false) {
-    config.buildDependenciesFromSource = false;
   }
 
-  await (0, _readConfigFile().validateConfig)(config, schemeDataPromise, (message, errors) => {
-    if (debugLogger.isEnabled) {
-      debugLogger.add("invalidConfig", JSON.stringify(errors, null, 2));
-    }
+  const oldConfig = config;
 
-    return `${message}
+  if (oldConfig.npmSkipBuildFromSource === false) {
+    throw new (_builderUtil().InvalidConfigurationError)(`npmSkipBuildFromSource is deprecated, please use buildDependenciesFromSource"`);
+  }
 
-How to fix:
-1. Open https://electron.build/configuration/configuration
-2. Search the option name on the page.
-  * Not found? The option was deprecated or not exists (check spelling).
-  * Found? Check that the option in the appropriate place. e.g. "title" only in the "dmg", not in the root.
+  if (oldConfig.appImage != null && oldConfig.appImage.systemIntegration != null) {
+    throw new (_builderUtil().InvalidConfigurationError)(`appImage.systemIntegration is deprecated, https://github.com/TheAssassin/AppImageLauncher is used for desktop integration"`);
+  } // noinspection JSUnusedGlobalSymbols
+
+
+  validateSchema((await schemeDataPromise.value), config, {
+    name: `electron-builder ${"0.0.0-semantic-release"}`,
+    postFormatter: (formattedError, error) => {
+      if (debugLogger.isEnabled) {
+        debugLogger.add("invalidConfig", (0, _builderUtil().safeStringifyJson)(error));
+      }
+
+      const site = "https://www.electron.build";
+      let url = `${site}/configuration/configuration`;
+      const targets = new Set(["mac", "dmg", "pkg", "mas", "win", "nsis", "appx", "linux", "appimage", "snap"]);
+      const dataPath = error.dataPath == null ? null : error.dataPath;
+      const targetPath = dataPath.startsWith(".") ? dataPath.substr(1).toLowerCase() : null;
+
+      if (targetPath != null && targets.has(targetPath)) {
+        url = `${site}/configuration/${targetPath}`;
+      }
+
+      return `${formattedError}\n  How to fix:
+  1. Open ${url}
+  2. Search the option name on the page (or type in into Search to find across the docs).
+    * Not found? The option was deprecated or not exists (check spelling).
+    * Found? Check that the option in the appropriate place. e.g. "title" only in the "dmg", not in the root.
 `;
+    }
   });
 }
 

@@ -60,13 +60,13 @@ class AppInfo {
       buildVersion = info.config.buildVersion;
     }
 
-    this.buildNumber = process.env.BUILD_NUMBER || process.env.TRAVIS_BUILD_NUMBER || process.env.APPVEYOR_BUILD_NUMBER || process.env.CIRCLE_BUILD_NUM || process.env.BUILD_BUILDNUMBER;
+    this.buildNumber = process.env.BUILD_NUMBER || process.env.TRAVIS_BUILD_NUMBER || process.env.APPVEYOR_BUILD_NUMBER || process.env.CIRCLE_BUILD_NUM || process.env.BUILD_BUILDNUMBER || process.env.CI_PIPELINE_IID;
 
     if (buildVersion == null) {
       buildVersion = this.version;
 
       if (!(0, _builderUtil().isEmptyOrSpaces)(this.buildNumber)) {
-        buildVersion = this.buildNumber;
+        buildVersion += `.${this.buildNumber}`;
       }
     }
 

@@ -18,3 +18,6 @@ export declare class CopyElevateHelper {
     private readonly copied;
     copy(appOutDir: string, target: NsisTarget): Promise<any>;
 }
+export declare class UninstallerReader {
+    static exec(installerPath: string, uninstallerPath: string): void;
+}

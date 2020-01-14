@@ -15,10 +15,10 @@ function _builderUtil() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -42,11 +42,41 @@ class LinuxTargetHelper {
   constructor(packager) {
     this.packager = packager;
     this.iconPromise = new (_lazyVal().Lazy)(() => this.computeDesktopIcons());
+    this.mimeTypeFilesPromise = new (_lazyVal().Lazy)(() => this.computeMimeTypeFiles());
     this.maxIconPath = null;
   }
 
   get icons() {
     return this.iconPromise.value;
+  }
+
+  get mimeTypeFiles() {
+    return this.mimeTypeFilesPromise.value;
+  }
+
+  async computeMimeTypeFiles() {
+    const items = [];
+
+    for (const fileAssociation of this.packager.fileAssociations) {
+      if (!fileAssociation.mimeType) {
+        continue;
+      }
+
+      const data = `<mime-type type="${fileAssociation.mimeType}">
+  <glob pattern="*.${fileAssociation.ext}"/>
+    ${fileAssociation.description ? `<comment>${fileAssociation.description}</comment>` : ""}
+  <icon name="x-office-document" />
+</mime-type>`;
+      items.push(data);
+    }
+
+    if (items.length === 0) {
+      return null;
+    }
+
+    const file = await this.packager.getTempFile(".xml");
+    await (0, _fsExtra().outputFile)(file, '<?xml version="1.0" encoding="utf-8"?>\n<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">\n' + items.join("\n") + "\n</mime-info>");
+    return file;
   } // must be name without spaces and other special characters, but not product name used
 
 
@@ -74,7 +104,7 @@ class LinuxTargetHelper {
   async writeDesktopEntry(targetSpecificOptions, exec, destination, extra) {
     const data = await this.computeDesktopEntry(targetSpecificOptions, exec, extra);
     const file = destination || (await this.packager.getTempFile(`${this.packager.appInfo.productFilename}.desktop`));
-    await (0, _fsExtraP().outputFile)(file, data);
+    await (0, _fsExtra().outputFile)(file, data);
     return file;
   }
 
@@ -91,10 +121,26 @@ class LinuxTargetHelper {
     const packager = this.packager;
     const appInfo = packager.appInfo;
     const productFilename = appInfo.productFilename;
-    const desktopMeta = Object.assign({
+    const executableArgs = targetSpecificOptions.executableArgs;
+
+    if (exec == null) {
+      exec = `${installPrefix}/${productFilename}/${packager.executableName}`;
+
+      if (!/^[/0-9A-Za-z._-]+$/.test(exec)) {
+        exec = `"${exec}"`;
+      }
+
+      if (executableArgs) {
+        exec += " ";
+        exec += executableArgs.join(" ");
+      }
+
+      exec += " %U";
+    }
+
+    const desktopMeta = Object.assign(Object.assign({
       Name: appInfo.productName,
-      Comment: this.getDescription(targetSpecificOptions),
-      Exec: exec == null ? `"${installPrefix}/${productFilename}/${packager.executableName}" %U` : exec,
+      Exec: exec,
       Terminal: "false",
       Type: "Application",
       Icon: packager.executableName,
@@ -104,7 +150,13 @@ class LinuxTargetHelper {
       // StartupWMClass doesn't work for unicode
       // https://github.com/electron/electron/blob/2-0-x/atom/browser/native_window_views.cc#L226
       StartupWMClass: appInfo.productName
-    }, extra, targetSpecificOptions.desktop);
+    }, extra), targetSpecificOptions.desktop);
+    const description = this.getDescription(targetSpecificOptions);
+
+    if (!(0, _builderUtil().isEmptyOrSpaces)(description)) {
+      desktopMeta.Comment = description;
+    }
+
     const mimeTypes = (0, _builderUtil().asArray)(targetSpecificOptions.mimeTypes);
 
     for (const fileAssociation of packager.fileAssociations) {

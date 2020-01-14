@@ -77,10 +77,10 @@ function _hash() {
 
 var _debug2 = _interopRequireDefault(require("debug"));
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -123,6 +123,16 @@ function _platformPackager() {
   const data = require("../../platformPackager");
 
   _platformPackager = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function _macosVersion() {
+  const data = require("../../util/macosVersion");
+
+  _macosVersion = function () {
     return data;
   };
 
@@ -219,7 +229,9 @@ function _nsisUtil() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -228,7 +240,7 @@ const debug = (0, _debug2.default)("electron-builder:nsis"); // noinspection Spe
 const ELECTRON_BUILDER_NS_UUID = _builderUtilRuntime().UUID.parse("50e065bc-3134-11e6-9bab-38c9862bdaf3"); // noinspection SpellCheckingInspection
 
 
-const nsisResourcePathPromise = new (_lazyVal().Lazy)(() => (0, _binDownload().getBinFromGithub)("nsis-resources", "3.3.0", "4okc98BD0v9xDcSjhPVhAkBMqos+FvD/5/H72fTTIwoHTuWd2WdD7r+1j72hxd+ZXxq1y3FRW0x6Z3jR0VfpMw=="));
+const nsisResourcePathPromise = new (_lazyVal().Lazy)(() => (0, _binDownload().getBinFromUrl)("nsis-resources", "3.4.1", "Dqd6g+2buwwvoG1Vyf6BHR1b+25QMmPcwZx40atOT57gH27rkjOei1L0JTldxZu4NFoEmW4kJgZ3DlSWVON3+Q=="));
 const USE_NSIS_BUILT_IN_COMPRESSOR = false;
 
 class NsisTarget extends _core().Target {
@@ -241,9 +253,9 @@ class NsisTarget extends _core().Target {
 
     this.archs = new Map();
     this.packageHelper.refCount++;
-    this.options = targetName === "portable" ? Object.create(null) : Object.assign({}, this.packager.config.nsis, {
+    this.options = targetName === "portable" ? Object.create(null) : Object.assign({
       preCompressedFileExtensions: [".avi", ".mov", ".m4v", ".mp4", ".m4p", ".qt", ".mkv", ".webm", ".vmdk"]
-    });
+    }, this.packager.config.nsis);
 
     if (targetName !== "nsis") {
       Object.assign(this.options, this.packager.config[targetName === "nsis-web" ? "nsisWeb" : targetName]);
@@ -289,7 +301,7 @@ class NsisTarget extends _core().Target {
 
     if (isBuildDifferentialAware && this.isWebInstaller) {
       const data = await (0, _differentialUpdateInfoBuilder().appendBlockmap)(archiveFile);
-      return Object.assign({}, data, {
+      return Object.assign(Object.assign({}, data), {
         path: archiveFile
       });
     } else {
@@ -384,7 +396,7 @@ class NsisTarget extends _core().Target {
 
     if (this.isPortable && options.useZip) {
       for (const [arch, dir] of this.archs.entries()) {
-        defines[arch === _builderUtil().Arch.x64 ? "APP_DIR_64" : "APP_DIR_32"] = dir;
+        defines[arch === _builderUtil().Arch.x64 ? "APP_DIR_64" : arch === _builderUtil().Arch.arm64 ? "APP_DIR_ARM64" : "APP_DIR_32"] = dir;
       }
     } else if (USE_NSIS_BUILT_IN_COMPRESSOR && this.archs.size === 1) {
       defines.APP_BUILD_DIR = this.archs.get(this.archs.keys().next().value);
@@ -392,7 +404,7 @@ class NsisTarget extends _core().Target {
       await _bluebirdLst().default.map(this.archs.keys(), async arch => {
         const fileInfo = await this.packageHelper.packArch(arch, this);
         const file = fileInfo.path;
-        const defineKey = arch === _builderUtil().Arch.x64 ? "APP_64" : "APP_32";
+        const defineKey = arch === _builderUtil().Arch.x64 ? "APP_64" : arch === _builderUtil().Arch.arm64 ? "APP_ARM64" : "APP_32";
         defines[defineKey] = file;
         defines[`${defineKey}_NAME`] = path.basename(file); // nsis expect a hexadecimal string
 
@@ -420,7 +432,13 @@ class NsisTarget extends _core().Target {
     this.configureDefinesForAllTypeOfInstaller(defines);
 
     if (isPortable) {
-      defines.REQUEST_EXECUTION_LEVEL = options.requestExecutionLevel || "user";
+      const portableOptions = options;
+      defines.REQUEST_EXECUTION_LEVEL = portableOptions.requestExecutionLevel || "user";
+      defines.UNPACK_DIR_NAME = portableOptions.unpackDirName || (await (0, _builderUtil().executeAppBuilder)(["ksuid"]));
+
+      if (portableOptions.splashImage != null) {
+        defines.SPLASH_IMAGE = portableOptions.splashImage;
+      }
     } else {
       await this.configureDefines(oneClick, defines);
     }
@@ -451,10 +469,10 @@ class NsisTarget extends _core().Target {
     }
 
     const sharedHeader = await this.computeCommonInstallerScriptHeader();
-    const script = isPortable ? await (0, _fsExtraP().readFile)(path.join(_nsisUtil().nsisTemplatesDir, "portable.nsi"), "utf8") : await this.computeScriptAndSignUninstaller(defines, commands, installerPath, sharedHeader);
+    const script = isPortable ? await (0, _fsExtra().readFile)(path.join(_nsisUtil().nsisTemplatesDir, "portable.nsi"), "utf8") : await this.computeScriptAndSignUninstaller(defines, commands, installerPath, sharedHeader);
     await this.executeMakensis(defines, commands, sharedHeader + (await this.computeFinalScript(script, true)));
-    await Promise.all([packager.sign(installerPath), defines.UNINSTALLER_OUT_FILE == null ? Promise.resolve() : (0, _fsExtraP().unlink)(defines.UNINSTALLER_OUT_FILE)]);
-    const safeArtifactName = (0, _platformPackager().isSafeGithubName)(installerFilename) ? installerFilename : this.generateGitHubInstallerName();
+    await Promise.all([packager.sign(installerPath), defines.UNINSTALLER_OUT_FILE == null ? Promise.resolve() : (0, _fsExtra().unlink)(defines.UNINSTALLER_OUT_FILE)]);
+    const safeArtifactName = (0, _platformPackager().computeSafeArtifactNameIfNeeded)(installerFilename, () => this.generateGitHubInstallerName());
     let updateInfo;
 
     if (this.isWebInstaller) {
@@ -495,7 +513,7 @@ class NsisTarget extends _core().Target {
   async computeScriptAndSignUninstaller(defines, commands, installerPath, sharedHeader) {
     const packager = this.packager;
     const customScriptPath = await packager.getResource(this.options.script, "installer.nsi");
-    const script = await (0, _fsExtraP().readFile)(customScriptPath || path.join(_nsisUtil().nsisTemplatesDir, "installer.nsi"), "utf8");
+    const script = await (0, _fsExtra().readFile)(customScriptPath || path.join(_nsisUtil().nsisTemplatesDir, "installer.nsi"), "utf8");
 
     if (customScriptPath != null) {
       _builderUtil().log.info({
@@ -507,12 +525,32 @@ class NsisTarget extends _core().Target {
     // it is more safe and reliable to write uninstaller to our out dir
 
 
-    const uninstallerPath = path.join(this.outDir, `.__uninstaller-${this.name}-${this.packager.appInfo.sanitizedName}.exe`);
+    const uninstallerPath = path.join(this.outDir, `__uninstaller-${this.name}-${this.packager.appInfo.sanitizedName}.exe`);
     const isWin = process.platform === "win32";
     defines.BUILD_UNINSTALLER = null;
     defines.UNINSTALLER_OUT_FILE = isWin ? uninstallerPath : path.win32.join("Z:", uninstallerPath);
-    await this.executeMakensis(defines, commands, sharedHeader + (await this.computeFinalScript(script, false)));
-    await (0, _wine().execWine)(installerPath);
+    await this.executeMakensis(defines, commands, sharedHeader + (await this.computeFinalScript(script, false))); // http://forums.winamp.com/showthread.php?p=3078545
+
+    if ((0, _macosVersion().isMacOsCatalina)()) {
+      try {
+        _nsisUtil().UninstallerReader.exec(installerPath, uninstallerPath);
+      } catch (error) {
+        _builderUtil().log.warn("packager.vm is used: " + error.message);
+
+        const vm = await packager.vm.value;
+        await vm.exec(installerPath, []); // Parallels VM can exit after command execution, but NSIS continue to be running
+
+        let i = 0;
+
+        while (!(await (0, _fs().exists)(uninstallerPath)) && i++ < 100) {
+          // noinspection JSUnusedLocalSymbols
+          await new Promise((resolve, _reject) => setTimeout(resolve, 300));
+        }
+      }
+    } else {
+      await (0, _wine().execWine)(installerPath);
+    }
+
     await packager.sign(uninstallerPath, "  Signing NSIS uninstaller");
     delete defines.BUILD_UNINSTALLER; // platform-specific path, not wine
 
@@ -698,7 +736,7 @@ class NsisTarget extends _core().Target {
     const command = path.join(nsisPath, process.platform === "darwin" ? "mac" : process.platform === "win32" ? "Bin" : "linux", process.platform === "win32" ? "makensis.exe" : "makensis");
     await (0, _builderUtil().spawnAndWrite)(command, args, script, {
       // we use NSIS_CONFIG_CONST_DATA_PATH=no to build makensis on Linux, but in any case it doesn't use stubs as MacOS/Windows version, so, we explicitly set NSISDIR
-      env: Object.assign({}, process.env, {
+      env: Object.assign(Object.assign({}, process.env), {
         NSISDIR: nsisPath
       }),
       cwd: _nsisUtil().nsisTemplatesDir
@@ -854,7 +892,7 @@ async function generateForPreCompressed(preCompressedFileExtensions, dir, arch, 
 async function createPackageFileInfo(file) {
   return {
     path: file,
-    size: (await (0, _fsExtraP().stat)(file)).size,
+    size: (await (0, _fsExtra().stat)(file)).size,
     sha512: await (0, _hash().hashFile)(file)
   };
 } 

@@ -29,10 +29,10 @@ function _langs() {
 
 var _debug2 = _interopRequireDefault(require("debug"));
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -61,7 +61,9 @@ function _nsisUtil() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -123,12 +125,12 @@ function createAddLangsMacro(scriptGenerator, langConfigurator) {
 
 async function writeCustomLangFile(data, packager) {
   const file = await packager.getTempFile("messages.nsh");
-  await (0, _fsExtraP().outputFile)(file, data);
+  await (0, _fsExtra().outputFile)(file, data);
   return file;
 }
 
 async function addCustomMessageFileInclude(input, packager, scriptGenerator, langConfigurator) {
-  const data = (0, _jsYaml().safeLoad)((await (0, _fsExtraP().readFile)(path.join(_nsisUtil().nsisTemplatesDir, input), "utf-8")));
+  const data = (0, _jsYaml().safeLoad)((await (0, _fsExtra().readFile)(path.join(_nsisUtil().nsisTemplatesDir, input), "utf-8")));
   const instructions = computeCustomMessageTranslations(data, langConfigurator).join("\n");
   debug(instructions);
   scriptGenerator.include((await writeCustomLangFile(instructions, packager)));

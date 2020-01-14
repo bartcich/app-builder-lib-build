@@ -7,16 +7,6 @@ exports.installOrRebuild = installOrRebuild;
 exports.getGypEnv = getGypEnv;
 exports.rebuild = rebuild;
 
-function _bluebirdLst() {
-  const data = _interopRequireDefault(require("bluebird-lst"));
-
-  _bluebirdLst = function () {
-    return data;
-  };
-
-  return data;
-}
-
 function _builderUtil() {
   const data = require("builder-util");
 
@@ -27,10 +17,10 @@ function _builderUtil() {
   return data;
 }
 
-function _fs() {
-  const data = require("builder-util/out/fs");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fs = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -49,17 +39,35 @@ function _os() {
 
 var path = _interopRequireWildcard(require("path"));
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _appBuilder() {
+  const data = require("./appBuilder");
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+  _appBuilder = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 async function installOrRebuild(config, appDir, options, forceInstall = false) {
   const effectiveOptions = Object.assign({
     buildFromSource: config.buildDependenciesFromSource === true,
     additionalArgs: (0, _builderUtil().asArray)(config.npmArgs)
   }, options);
+  let isDependenciesInstalled = false;
 
-  if (forceInstall || !(await (0, _fs().exists)(path.join(appDir, "node_modules")))) {
+  for (const fileOrDir of ["node_modules", ".pnp.js"]) {
+    if (await (0, _fsExtra().pathExists)(path.join(appDir, fileOrDir))) {
+      isDependenciesInstalled = true;
+      break;
+    }
+  }
+
+  if (forceInstall || !isDependenciesInstalled) {
     await installDependencies(appDir, effectiveOptions);
   } else {
     await rebuild(appDir, effectiveOptions);
@@ -72,7 +80,7 @@ function getElectronGypCacheDir() {
 
 function getGypEnv(frameworkInfo, platform, arch, buildFromSource) {
   const npmConfigArch = arch === "armv7l" ? "arm" : arch;
-  const common = Object.assign({}, process.env, {
+  const common = Object.assign(Object.assign({}, process.env), {
     npm_config_arch: npmConfigArch,
     npm_config_target_arch: npmConfigArch,
     npm_config_platform: platform,
@@ -83,6 +91,10 @@ function getGypEnv(frameworkInfo, platform, arch, buildFromSource) {
     npm_config_fallback_to_build: true
   });
 
+  if (platform !== process.platform) {
+    common.npm_config_force = "true";
+  }
+
   if (platform === "win32") {
     common.npm_config_target_libc = "unknown";
   }
@@ -92,8 +104,8 @@ function getGypEnv(frameworkInfo, platform, arch, buildFromSource) {
   } // https://github.com/nodejs/node-gyp/issues/21
 
 
-  return Object.assign({}, common, {
-    npm_config_disturl: "https://atom.io/download/electron",
+  return Object.assign(Object.assign({}, common), {
+    npm_config_disturl: "https://electronjs.org/headers",
     npm_config_target: frameworkInfo.version,
     npm_config_runtime: "electron",
     npm_config_devdir: getElectronGypCacheDir()
@@ -155,78 +167,20 @@ function isRunningYarn(execPath) {
 
 
 async function rebuild(appDir, options) {
-  const nativeDeps = await _bluebirdLst().default.filter((await options.productionDeps.value), it => (0, _fs().exists)(path.join(it.path, "binding.gyp")), {
-    concurrency: 8
+  const configuration = {
+    dependencies: await options.productionDeps.value,
+    nodeExecPath: process.execPath,
+    platform: options.platform || process.platform,
+    arch: options.arch || process.arch,
+    additionalArgs: options.additionalArgs,
+    execPath: process.env.npm_execpath || process.env.NPM_CLI_JS,
+    buildFromSource: options.buildFromSource === true
+  };
+  const env = getGypEnv(options.frameworkInfo, configuration.platform, configuration.arch, options.buildFromSource === true);
+  await (0, _appBuilder().executeAppBuilderAndWriteJson)(["rebuild-node-modules"], configuration, {
+    env,
+    cwd: appDir
   });
-
-  if (nativeDeps.length === 0) {
-    _builderUtil().log.info("no native production dependencies");
-
-    return;
-  }
-
-  const platform = options.platform || process.platform;
-  const arch = options.arch || process.arch;
-  const additionalArgs = options.additionalArgs;
-
-  _builderUtil().log.info({
-    platform,
-    arch
-  }, "rebuilding native production dependencies");
-
-  let execPath = process.env.npm_execpath || process.env.NPM_CLI_JS;
-  const isYarn = isRunningYarn(execPath);
-  const execArgs = [];
-
-  if (execPath == null) {
-    execPath = getPackageToolPath();
-  } else {
-    execArgs.push(execPath);
-    execPath = process.env.npm_node_execpath || process.env.NODE_EXE || "node";
-  }
-
-  const env = getGypEnv(options.frameworkInfo, platform, arch, options.buildFromSource === true);
-
-  if (isYarn) {
-    execArgs.push("run", "install");
-
-    if (additionalArgs != null) {
-      execArgs.push(...additionalArgs);
-    }
-
-    await _bluebirdLst().default.map(nativeDeps, dep => {
-      _builderUtil().log.info({
-        name: dep.name
-      }, `rebuilding native dependency`);
-
-      return (0, _builderUtil().spawn)(execPath, execArgs, {
-        cwd: dep.path,
-        env
-      }).catch(error => {
-        if (dep.optional) {
-          _builderUtil().log.warn({
-            dep: dep.name
-          }, "cannot build optional native dep");
-        } else {
-          throw error;
-        }
-      });
-    }, {
-      concurrency: process.platform === "win32" ? 1 : 2
-    });
-  } else {
-    execArgs.push("rebuild");
-
-    if (additionalArgs != null) {
-      execArgs.push(...additionalArgs);
-    }
-
-    execArgs.push(...nativeDeps.map(it => `${it.name}@${it.version}`));
-    await (0, _builderUtil().spawn)(execPath, execArgs, {
-      cwd: appDir,
-      env
-    });
-  }
 } 
 // __ts-babel@6.0.4
 //# sourceMappingURL=yarn.js.map

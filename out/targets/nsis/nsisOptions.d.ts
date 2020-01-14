@@ -110,7 +110,7 @@ export interface NsisOptions extends CommonNsisOptions, CommonWindowsInstallerCo
      */
     readonly deleteAppDataOnUninstall?: boolean;
     /**
-     * Defaults to `true` for web installer (`nsis-web`)
+     * @private
      */
     differentialPackage?: boolean;
     /**
@@ -150,6 +150,16 @@ export interface PortableOptions extends TargetSpecificOptions, CommonNsisOption
      * @default user
      */
     readonly requestExecutionLevel?: "user" | "highest" | "admin";
+    /**
+     * The unpack directory name in [TEMP](https://www.askvg.com/where-does-windows-store-temporary-files-and-how-to-change-temp-folder-location/) directory.
+     *
+     * Defaults to [uuid](https://github.com/segmentio/ksuid) of build (changed on each build of portable executable).
+     */
+    readonly unpackDirName?: string;
+    /**
+     * The image to show while the portable executable is extracting. This image must be a bitmap (`.bmp`) image.
+     */
+    readonly splashImage?: string | null;
 }
 /**
  * Web Installer options.

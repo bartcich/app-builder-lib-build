@@ -35,20 +35,10 @@ function _fs() {
   return data;
 }
 
-function _promise() {
-  const data = require("builder-util/out/promise");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _promise = function () {
-    return data;
-  };
-
-  return data;
-}
-
-function _fsExtraP() {
-  const data = require("fs-extra-p");
-
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -56,16 +46,6 @@ function _fsExtraP() {
 }
 
 var path = _interopRequireWildcard(require("path"));
-
-function _plist() {
-  const data = require("plist");
-
-  _plist = function () {
-    return data;
-  };
-
-  return data;
-}
 
 function _appInfo() {
   const data = require("../appInfo");
@@ -87,12 +67,24 @@ function _platformPackager() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _appBuilder() {
+  const data = require("../util/appBuilder");
+
+  _appBuilder = function () {
+    return data;
+  };
+
+  return data;
+}
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function doRename(basePath, oldName, newName) {
-  return (0, _fsExtraP().rename)(path.join(basePath, oldName), path.join(basePath, newName));
+  return (0, _fsExtra().rename)(path.join(basePath, oldName), path.join(basePath, newName));
 }
 
 function moveHelpers(helperSuffixes, frameworksPath, appName, prefix) {
@@ -102,7 +94,7 @@ function moveHelpers(helperSuffixes, frameworksPath, appName, prefix) {
   });
 }
 
-function getAvailableHelperSuffixes(helperEHPlist, helperNPPlist) {
+function getAvailableHelperSuffixes(helperEHPlist, helperNPPlist, helperRendererPlist, helperPluginPlist, helperGPUPlist) {
   const result = [" Helper"];
 
   if (helperEHPlist != null) {
@@ -111,6 +103,18 @@ function getAvailableHelperSuffixes(helperEHPlist, helperNPPlist) {
 
   if (helperNPPlist != null) {
     result.push(" Helper NP");
+  }
+
+  if (helperRendererPlist != null) {
+    result.push(" Helper (Renderer)");
+  }
+
+  if (helperPluginPlist != null) {
+    result.push(" Helper (Plugin)");
+  }
+
+  if (helperGPUPlist != null) {
+    result.push(" Helper (GPU)");
   }
 
   return result;
@@ -125,22 +129,33 @@ async function createMacApp(packager, appOutDir, asarIntegrity, isMas) {
   const frameworksPath = path.join(contentsPath, "Frameworks");
   const loginItemPath = path.join(contentsPath, "Library", "LoginItems");
   const appPlistFilename = path.join(contentsPath, "Info.plist");
-  const helperPlistFilename = path.join(frameworksPath, `${packager.electronDistMacOsExecutableName} Helper.app`, "Contents", "Info.plist");
-  const helperEHPlistFilename = path.join(frameworksPath, `${packager.electronDistMacOsExecutableName} Helper EH.app`, "Contents", "Info.plist");
-  const helperNPPlistFilename = path.join(frameworksPath, `${packager.electronDistMacOsExecutableName} Helper NP.app`, "Contents", "Info.plist");
-  const helperLoginPlistFilename = path.join(loginItemPath, `${packager.electronDistMacOsExecutableName} Login Helper.app`, "Contents", "Info.plist");
-  const buildMetadata = packager.config;
-  const fileContents = await _bluebirdLst().default.map([appPlistFilename, helperPlistFilename, helperEHPlistFilename, helperNPPlistFilename, helperLoginPlistFilename, buildMetadata["extend-info"]], it => it == null ? it : (0, _promise().orIfFileNotExist)((0, _fsExtraP().readFile)(it, "utf8"), null));
-  const appPlist = (0, _plist().parse)(fileContents[0]);
-  const helperPlist = (0, _plist().parse)(fileContents[1]);
-  const helperEHPlist = fileContents[2] == null ? null : (0, _plist().parse)(fileContents[2]);
-  const helperNPPlist = fileContents[3] == null ? null : (0, _plist().parse)(fileContents[3]);
-  const helperLoginPlist = fileContents[4] == null ? null : (0, _plist().parse)(fileContents[4]); // if an extend-info file was supplied, copy its contents in first
+  const helperPlistFilename = path.join(frameworksPath, "Electron Helper.app", "Contents", "Info.plist");
+  const helperEHPlistFilename = path.join(frameworksPath, "Electron Helper EH.app", "Contents", "Info.plist");
+  const helperNPPlistFilename = path.join(frameworksPath, "Electron Helper NP.app", "Contents", "Info.plist");
+  const helperRendererPlistFilename = path.join(frameworksPath, "Electron Helper (Renderer).app", "Contents", "Info.plist");
+  const helperPluginPlistFilename = path.join(frameworksPath, "Electron Helper (Plugin).app", "Contents", "Info.plist");
+  const helperGPUPlistFilename = path.join(frameworksPath, "Electron Helper (GPU).app", "Contents", "Info.plist");
+  const helperLoginPlistFilename = path.join(loginItemPath, "Electron Login Helper.app", "Contents", "Info.plist");
+  const plistContent = await (0, _appBuilder().executeAppBuilderAsJson)(["decode-plist", "-f", appPlistFilename, "-f", helperPlistFilename, "-f", helperEHPlistFilename, "-f", helperNPPlistFilename, "-f", helperRendererPlistFilename, "-f", helperPluginPlistFilename, "-f", helperGPUPlistFilename, "-f", helperLoginPlistFilename]);
 
-  if (fileContents[5] != null) {
-    Object.assign(appPlist, (0, _plist().parse)(fileContents[5]));
+  if (plistContent[0] == null) {
+    throw new Error("corrupted Electron dist");
   }
 
+  const appPlist = plistContent[0];
+  const helperPlist = plistContent[1];
+  const helperEHPlist = plistContent[2];
+  const helperNPPlist = plistContent[3];
+  const helperRendererPlist = plistContent[4];
+  const helperPluginPlist = plistContent[5];
+  const helperGPUPlist = plistContent[6];
+  const helperLoginPlist = plistContent[7]; // if an extend-info file was supplied, copy its contents in first
+
+  if (plistContent[8] != null) {
+    Object.assign(appPlist, plistContent[8]);
+  }
+
+  const buildMetadata = packager.config;
   const oldHelperBundleId = buildMetadata["helper-bundle-id"];
 
   if (oldHelperBundleId != null) {
@@ -162,8 +177,20 @@ async function createMacApp(packager, appOutDir, asarIntegrity, isMas) {
   function configureHelper(helper, postfix) {
     helper.CFBundleExecutable = `${appFilename} Helper ${postfix}`;
     helper.CFBundleDisplayName = `${appInfo.productName} Helper ${postfix}`;
-    helper.CFBundleIdentifier = `${helperBundleIdentifier}.${postfix}`;
+    helper.CFBundleIdentifier = `${helperBundleIdentifier}.${postfix.replace(/[^a-z0-9]/gim, "")}`;
     helper.CFBundleVersion = appPlist.CFBundleVersion;
+  }
+
+  if (helperRendererPlist != null) {
+    configureHelper(helperRendererPlist, "(Renderer)");
+  }
+
+  if (helperPluginPlist != null) {
+    configureHelper(helperPluginPlist, "(Plugin)");
+  }
+
+  if (helperGPUPlist != null) {
+    configureHelper(helperGPUPlist, "(GPU)");
   }
 
   if (helperEHPlist != null) {
@@ -232,21 +259,50 @@ async function createMacApp(packager, appOutDir, asarIntegrity, isMas) {
     appPlist.AsarIntegrity = JSON.stringify(asarIntegrity);
   }
 
-  await Promise.all([(0, _fsExtraP().writeFile)(appPlistFilename, (0, _plist().build)(appPlist)), (0, _fsExtraP().writeFile)(helperPlistFilename, (0, _plist().build)(helperPlist)), helperEHPlist == null ? Promise.resolve() : (0, _fsExtraP().writeFile)(helperEHPlistFilename, (0, _plist().build)(helperEHPlist)), helperNPPlist == null ? Promise.resolve() : (0, _fsExtraP().writeFile)(helperNPPlistFilename, (0, _plist().build)(helperNPPlist)), helperLoginPlist == null ? Promise.resolve() : (0, _fsExtraP().writeFile)(helperLoginPlistFilename, (0, _plist().build)(helperLoginPlist)), doRename(path.join(contentsPath, "MacOS"), packager.electronDistMacOsExecutableName, appPlist.CFBundleExecutable), (0, _fs().unlinkIfExists)(path.join(appOutDir, "LICENSE")), (0, _fs().unlinkIfExists)(path.join(appOutDir, "LICENSES.chromium.html"))]);
-  await moveHelpers(getAvailableHelperSuffixes(helperEHPlist, helperNPPlist), frameworksPath, appFilename, packager.electronDistMacOsExecutableName);
+  const plistDataToWrite = {
+    [appPlistFilename]: appPlist,
+    [helperPlistFilename]: helperPlist
+  };
+
+  if (helperEHPlist != null) {
+    plistDataToWrite[helperEHPlistFilename] = helperEHPlist;
+  }
+
+  if (helperNPPlist != null) {
+    plistDataToWrite[helperNPPlistFilename] = helperNPPlist;
+  }
+
+  if (helperRendererPlist != null) {
+    plistDataToWrite[helperRendererPlistFilename] = helperRendererPlist;
+  }
+
+  if (helperPluginPlist != null) {
+    plistDataToWrite[helperPluginPlistFilename] = helperPluginPlist;
+  }
+
+  if (helperGPUPlist != null) {
+    plistDataToWrite[helperGPUPlistFilename] = helperGPUPlist;
+  }
 
   if (helperLoginPlist != null) {
-    const prefix = packager.electronDistMacOsExecutableName;
+    plistDataToWrite[helperLoginPlistFilename] = helperLoginPlist;
+  }
+
+  await Promise.all([(0, _appBuilder().executeAppBuilderAndWriteJson)(["encode-plist"], plistDataToWrite), doRename(path.join(contentsPath, "MacOS"), "Electron", appPlist.CFBundleExecutable), (0, _fs().unlinkIfExists)(path.join(appOutDir, "LICENSE")), (0, _fs().unlinkIfExists)(path.join(appOutDir, "LICENSES.chromium.html"))]);
+  await moveHelpers(getAvailableHelperSuffixes(helperEHPlist, helperNPPlist, helperRendererPlist, helperPluginPlist, helperGPUPlist), frameworksPath, appFilename, "Electron");
+
+  if (helperLoginPlist != null) {
+    const prefix = "Electron";
     const suffix = " Login Helper";
     const executableBasePath = path.join(loginItemPath, `${prefix}${suffix}.app`, "Contents", "MacOS");
     await doRename(executableBasePath, `${prefix}${suffix}`, appFilename + suffix).then(() => doRename(loginItemPath, `${prefix}${suffix}.app`, `${appFilename}${suffix}.app`));
   }
 
   const appPath = path.join(appOutDir, `${appFilename}.app`);
-  await (0, _fsExtraP().rename)(path.dirname(contentsPath), appPath); // https://github.com/electron-userland/electron-builder/issues/840
+  await (0, _fsExtra().rename)(path.dirname(contentsPath), appPath); // https://github.com/electron-userland/electron-builder/issues/840
 
   const now = Date.now() / 1000;
-  await (0, _fsExtraP().utimes)(appPath, now, now);
+  await (0, _fsExtra().utimes)(appPath, now, now);
 }
 
 function configureLocalhostAts(appPlist) {

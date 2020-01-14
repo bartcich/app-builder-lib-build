@@ -37,6 +37,16 @@ function _core() {
   return data;
 }
 
+function _platformPackager() {
+  const data = require("../platformPackager");
+
+  _platformPackager = function () {
+    return data;
+  };
+
+  return data;
+}
+
 function _appBuilder() {
   const data = require("../util/appBuilder");
 
@@ -57,7 +67,9 @@ function _ProjectInfoManager() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -70,7 +82,7 @@ class RemoteBuilder {
 
   scheduleBuild(target, arch, unpackedDirectory) {
     if (!(0, _builderUtil().isEnvTrue)(process.env._REMOTE_BUILD) && this.packager.config.remoteBuild === false) {
-      throw new Error("Target is not supported on your OS and using of Electron Build Service is disabled (\"remoteBuild\" option)");
+      throw new (_builderUtil().InvalidConfigurationError)("Target is not supported on your OS and using of Electron Build Service is disabled (\"remoteBuild\" option)");
     }
 
     let list = this.toBuild.get(arch);
@@ -107,9 +119,8 @@ class RemoteBuilder {
       }, "remote building");
     }
 
-    const projectInfoManager = new (_ProjectInfoManager().ProjectInfoManager)(packager.info); // let result: RemoteBuilderResponse | null = null
-
-    const req = Buffer.from(JSON.stringify({
+    const projectInfoManager = new (_ProjectInfoManager().ProjectInfoManager)(packager.info);
+    const buildRequest = {
       targets: targets.map(it => {
         return {
           name: it.name,
@@ -118,7 +129,19 @@ class RemoteBuilder {
         };
       }),
       platform: packager.platform.buildConfigurationKey
-    })).toString("base64");
+    };
+
+    if ((0, _platformPackager().isSafeToUnpackElectronOnRemoteBuildServer)(packager)) {
+      buildRequest.electronDownload = {
+        version: packager.info.framework.version,
+        platform: _core().Platform.LINUX.nodeName,
+        arch: targets[0].arch
+      };
+      const linuxPackager = packager;
+      buildRequest.executableName = linuxPackager.executableName;
+    }
+
+    const req = Buffer.from(JSON.stringify(buildRequest)).toString("base64");
     const outDir = targets[0].outDir;
     const args = ["remote-build", "--request", req, "--output", outDir];
     args.push("--file", targets[0].unpackedDirectory);
@@ -147,7 +170,7 @@ class RemoteBuilder {
   artifactInfoToArtifactCreatedEvent(artifact, localFile, outDir) {
     const target = artifact.target; // noinspection SpellCheckingInspection
 
-    return Object.assign({}, artifact, {
+    return Object.assign(Object.assign({}, artifact), {
       file: localFile,
       target: target == null ? null : new FakeTarget(target, outDir, this.packager.config[target]),
       packager: this.packager

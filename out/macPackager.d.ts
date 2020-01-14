@@ -1,9 +1,10 @@
 import { Arch, AsyncTaskManager } from "builder-util";
-import { SignOptions } from "electron-osx-sign";
+import { SignOptions } from "../electron-osx-sign";
 import { Lazy } from "lazy-val";
 import { AppInfo } from "./appInfo";
 import { CodeSigningInfo, Identity } from "./codeSign/macCodeSign";
 import { Target } from "./core";
+import { AfterPackContext } from "./index";
 import { MacConfiguration } from "./options/macOptions";
 import { Packager } from "./packager";
 import { PlatformPackager } from "./platformPackager";
@@ -11,10 +12,11 @@ export default class MacPackager extends PlatformPackager<MacConfiguration> {
     readonly codeSigningInfo: Lazy<CodeSigningInfo>;
     private _iconPath;
     constructor(info: Packager);
-    readonly defaultTarget: Array<string>;
+    get defaultTarget(): Array<string>;
     protected prepareAppInfo(appInfo: AppInfo): AppInfo;
     getIconPath(): Promise<string | null>;
     createTargets(targets: Array<string>, mapper: (name: string, factory: (outDir: string) => Target) => void): void;
+    private hasMasTarget;
     pack(outDir: string, arch: Arch, targets: Array<Target>, taskManager: AsyncTaskManager): Promise<any>;
     private sign;
     private adjustSignOptions;
@@ -23,4 +25,5 @@ export default class MacPackager extends PlatformPackager<MacConfiguration> {
     getElectronSrcDir(dist: string): string;
     getElectronDestinationDir(appOutDir: string): string;
     applyCommonInfo(appPlist: any, contentsPath: string): Promise<void>;
+    protected signApp(packContext: AfterPackContext, isAsar: boolean): Promise<any>;
 }

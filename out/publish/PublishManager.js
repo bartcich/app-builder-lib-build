@@ -53,7 +53,7 @@ function _electronPublish() {
 }
 
 function _BintrayPublisher() {
-  const data = require("electron-publish/out/BintrayPublisher");
+  const data = require("./BintrayPublisher");
 
   _BintrayPublisher = function () {
     return data;
@@ -83,7 +83,7 @@ function _multiProgress() {
 }
 
 function _s3Publisher() {
-  const data = _interopRequireDefault(require("electron-publish/out/s3/s3Publisher"));
+  const data = _interopRequireDefault(require("./s3/s3Publisher"));
 
   _s3Publisher = function () {
     return data;
@@ -93,7 +93,7 @@ function _s3Publisher() {
 }
 
 function _spacesPublisher() {
-  const data = _interopRequireDefault(require("electron-publish/out/s3/spacesPublisher"));
+  const data = _interopRequireDefault(require("./s3/spacesPublisher"));
 
   _spacesPublisher = function () {
     return data;
@@ -102,10 +102,10 @@ function _spacesPublisher() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -154,6 +154,16 @@ function _macroExpander() {
   return data;
 }
 
+function _SnapStorePublisher() {
+  const data = require("./SnapStorePublisher");
+
+  _SnapStorePublisher = function () {
+    return data;
+  };
+
+  return data;
+}
+
 function _updateInfoBuilder() {
   const data = require("./updateInfoBuilder");
 
@@ -164,7 +174,9 @@ function _updateInfoBuilder() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -248,7 +260,7 @@ class PublishManager {
       const publishConfig = await getAppUpdatePublishConfiguration(packager, event.arch, this.isPublish);
 
       if (publishConfig != null) {
-        await (0, _fsExtraP().writeFile)(path.join(packager.getResourcesDir(event.appOutDir), "app-update.yml"), (0, _builderUtil().serializeToYaml)(publishConfig));
+        await (0, _fsExtra().writeFile)(path.join(packager.getResourcesDir(event.appOutDir), "app-update.yml"), (0, _builderUtil().serializeToYaml)(publishConfig));
       }
     });
     packager.artifactCreated(event => {
@@ -397,7 +409,7 @@ async function getAppUpdatePublishConfiguration(packager, arch, errorIfCannot) {
     return null;
   }
 
-  const publishConfig = Object.assign({}, publishConfigs[0], {
+  const publishConfig = Object.assign(Object.assign({}, publishConfigs[0]), {
     updaterCacheDirName: packager.appInfo.updaterCacheDirName
   });
 
@@ -458,6 +470,9 @@ function createPublisher(context, version, publishConfig, options, packager) {
     case "generic":
       return null;
 
+    case "snapStore":
+      return new (_SnapStorePublisher().SnapStorePublisher)(context, publishConfig);
+
     default:
       const clazz = requireProviderClass(provider, packager);
       return clazz == null ? null : new clazz(context, publishConfig);
@@ -477,6 +492,9 @@ function requireProviderClass(provider, packager) {
 
     case "s3":
       return _s3Publisher().default;
+
+    case "snapStore":
+      return _SnapStorePublisher().SnapStorePublisher;
 
     case "spaces":
       return _spacesPublisher().default;
@@ -508,7 +526,7 @@ function computeDownloadUrl(publishConfiguration, fileName, packager) {
     }
 
     const baseUrl = url().parse(baseUrlString);
-    return url().format(Object.assign({}, baseUrl, {
+    return url().format(Object.assign(Object.assign({}, baseUrl), {
       pathname: path.posix.resolve(baseUrl.pathname || "/", encodeURI(fileName))
     }));
   }
@@ -571,7 +589,7 @@ async function resolvePublishConfigurations(publishers, platformPackager, packag
     }
 
     if (serviceName != null) {
-      _builderUtil().log.debug(null, `Detect ${serviceName} as publish provider`);
+      _builderUtil().log.debug(null, `detect ${serviceName} as publish provider`);
 
       return [await getResolvedPublishConfig(platformPackager, packager, {
         provider: serviceName

@@ -49,10 +49,10 @@ function _bundledTool() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -101,7 +101,9 @@ function _vm() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function getSignVendorPath() {
   return (0, _binDownload().getBin)("winCodeSign");
@@ -128,33 +130,34 @@ async function sign(options, packager) {
   let isNest = false;
 
   for (const hash of hashes) {
-    const taskConfiguration = Object.assign({}, options, {
+    const taskConfiguration = Object.assign(Object.assign({}, options), {
       hash,
       isNest
     });
-    await executor(Object.assign({}, taskConfiguration, {
+    await executor(Object.assign(Object.assign({}, taskConfiguration), {
       computeSignToolArgs: isWin => computeSignToolArgs(taskConfiguration, isWin)
     }));
     isNest = true;
 
     if (taskConfiguration.resultOutputPath != null) {
-      await (0, _fsExtraP().rename)(taskConfiguration.resultOutputPath, options.path);
+      await (0, _fsExtra().rename)(taskConfiguration.resultOutputPath, options.path);
     }
   }
 }
 
 async function getCertInfo(file, password) {
   let result = null;
+  const errorMessagePrefix = "Cannot extract publisher name from code signing certificate. As workaround, set win.publisherName. Error: ";
 
   try {
     result = await (0, _appBuilder().executeAppBuilderAsJson)(["certificate-info", "--input", file, "--password", password]);
   } catch (e) {
-    throw new Error(`Cannot extract publisher name from code signing certificate, please file issue. As workaround, set win.publisherName: ${e.stack || e}`);
+    throw new Error(`${errorMessagePrefix}${e.stack || e}`);
   }
 
   if (result.error != null) {
     // noinspection ExceptionCaughtLocallyJS
-    throw new (_util().InvalidConfigurationError)(`Cannot extract publisher name from code signing certificate: ${result.error}`);
+    throw new (_util().InvalidConfigurationError)(`${errorMessagePrefix}${result.error}`);
   }
 
   return result;
@@ -233,7 +236,7 @@ async function doSign(configuration, packager) {
     });
   } catch (e) {
     if (e.message.includes("The file is being used by another process") || e.message.includes("The specified timestamp server either could not be reached")) {
-      _util().log.warn(`First attempt to code sign failed, another attempt will be made in 2 seconds: ${e.message}`);
+      _util().log.warn(`First attempt to code sign failed, another attempt will be made in 15 seconds: ${e.message}`);
 
       await new Promise((resolve, reject) => {
         setTimeout(() => {
@@ -241,7 +244,7 @@ async function doSign(configuration, packager) {
             timeout,
             env
           }).then(resolve).catch(reject);
-        }, 2000);
+        }, 15000);
       });
     }
 
@@ -261,7 +264,7 @@ function computeSignToolArgs(options, isWin, vm = new (_vm().VmManager)()) {
   const args = isWin ? ["sign"] : ["-in", inputFile, "-out", outputPath];
 
   if (process.env.ELECTRON_BUILDER_OFFLINE !== "true") {
-    const timestampingServiceUrl = options.options.timeStampServer || "http://timestamp.verisign.com/scripts/timstamp.dll";
+    const timestampingServiceUrl = options.options.timeStampServer || "http://timestamp.digicert.com";
 
     if (isWin) {
       args.push(options.isNest || options.hash === "sha256" ? "/tr" : "/t", options.isNest || options.hash === "sha256" ? options.options.rfc3161TimeStampServer || "http://timestamp.comodoca.com/rfc3161" : timestampingServiceUrl);

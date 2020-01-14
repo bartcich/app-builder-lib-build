@@ -35,10 +35,10 @@ function _fs() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -57,20 +57,20 @@ function _lazyVal() {
 
 var path = _interopRequireWildcard(require("path"));
 
-function semver() {
-  const data = _interopRequireWildcard(require("semver"));
+function _index() {
+  const data = require("../index");
 
-  semver = function () {
+  _index = function () {
     return data;
   };
 
   return data;
 }
 
-function _index() {
-  const data = require("../index");
+function _platformPackager() {
+  const data = require("../platformPackager");
 
-  _index = function () {
+  _platformPackager = function () {
     return data;
   };
 
@@ -107,7 +107,9 @@ function _electronVersion() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -119,27 +121,19 @@ function createDownloadOpts(opts, platform, arch, electronVersion) {
   }, opts.electronDownload);
 }
 
-async function beforeCopyExtraFiles(options, isClearExecStack) {
+async function beforeCopyExtraFiles(options) {
   const packager = options.packager;
   const appOutDir = options.appOutDir;
 
   if (packager.platform === _index().Platform.LINUX) {
-    const linuxPackager = packager;
-    const executable = path.join(appOutDir, linuxPackager.executableName);
-    await (0, _fsExtraP().rename)(path.join(appOutDir, packager.electronDistExecutableName), executable);
-
-    if (isClearExecStack) {
-      try {
-        await (0, _builderUtil().executeAppBuilder)(["clear-exec-stack", "--input", executable]);
-      } catch (e) {
-        _builderUtil().log.debug({
-          error: e
-        }, "cannot clear exec stack");
-      }
+    if (!(0, _platformPackager().isSafeToUnpackElectronOnRemoteBuildServer)(packager)) {
+      const linuxPackager = packager;
+      const executable = path.join(appOutDir, linuxPackager.executableName);
+      await (0, _fsExtra().rename)(path.join(appOutDir, "electron"), executable);
     }
   } else if (packager.platform === _index().Platform.WINDOWS) {
     const executable = path.join(appOutDir, `${packager.appInfo.productFilename}.exe`);
-    await (0, _fsExtraP().rename)(path.join(appOutDir, `${packager.electronDistExecutableName}.exe`), executable);
+    await (0, _fsExtra().rename)(path.join(appOutDir, "electron.exe"), executable);
   } else {
     await (0, _electronMac().createMacApp)(packager, appOutDir, options.asarIntegrity, options.platformName === "mas");
     const wantedLanguages = (0, _builderUtil().asArray)(packager.platformSpecificBuildOptions.electronLanguages);
@@ -151,7 +145,7 @@ async function beforeCopyExtraFiles(options, isClearExecStack) {
 
     const langFileExt = ".lproj";
     const resourcesDir = packager.getResourcesDir(appOutDir);
-    await _bluebirdLst().default.map((0, _fsExtraP().readdir)(resourcesDir), file => {
+    await _bluebirdLst().default.map((0, _fsExtra().readdir)(resourcesDir), file => {
       if (!file.endsWith(langFileExt)) {
         return;
       }
@@ -159,7 +153,7 @@ async function beforeCopyExtraFiles(options, isClearExecStack) {
       const language = file.substring(0, file.length - langFileExt.length);
 
       if (!wantedLanguages.includes(language)) {
-        return (0, _fsExtraP().remove)(path.join(resourcesDir, file));
+        return (0, _fsExtra().remove)(path.join(resourcesDir, file));
       }
 
       return;
@@ -196,31 +190,12 @@ class ElectronFramework {
   }
 
   beforeCopyExtraFiles(options) {
-    return beforeCopyExtraFiles(options, this.name === "electron" && semver().lte(this.version || "1.8.3", "1.8.3"));
-  }
-
-}
-
-class MuonFramework extends ElectronFramework {
-  constructor(version) {
-    super("muon", version, "Brave.app");
-  }
-
-  prepareApplicationStageDirectory(options) {
-    return unpack(options, Object.assign({
-      mirror: "https://github.com/brave/muon/releases/download/v",
-      customFilename: `brave-v${options.version}-${options.platformName}-${options.arch}.zip`,
-      isVerifyChecksum: false
-    }, createDownloadOpts(options.packager.config, options.platformName, options.arch, options.version)), this.distMacOsAppName);
+    return beforeCopyExtraFiles(options);
   }
 
 }
 
 async function createElectronFrameworkSupport(configuration, packager) {
-  if (configuration.muonVersion != null) {
-    return new MuonFramework(configuration.muonVersion);
-  }
-
   let version = configuration.electronVersion;
 
   if (version == null) {
@@ -259,6 +234,10 @@ async function unpack(prepareOptions, options, distMacOsAppName) {
   let isFullCleanup = false;
 
   if (dist == null) {
+    if ((0, _platformPackager().isSafeToUnpackElectronOnRemoteBuildServer)(packager)) {
+      return;
+    }
+
     await (0, _builderUtil().executeAppBuilder)(["unpack-electron", "--configuration", JSON.stringify([options]), "--output", out, "--distMacOsAppName", distMacOsAppName]);
   } else {
     isFullCleanup = true;
@@ -270,7 +249,7 @@ async function unpack(prepareOptions, options, distMacOsAppName) {
       destination
     }, "copying Electron");
 
-    await (0, _fsExtraP().emptyDir)(out);
+    await (0, _fsExtra().emptyDir)(out);
     await (0, _fs().copyDir)(source, destination, {
       isUseHardLink: _fs().DO_NOT_USE_HARD_LINKS
     });
@@ -285,7 +264,7 @@ function cleanupAfterUnpack(prepareOptions, distMacOsAppName, isFullCleanup) {
   const isMac = prepareOptions.packager.platform === _index().Platform.MAC;
 
   const resourcesPath = isMac ? path.join(out, distMacOsAppName, "Contents", "Resources") : path.join(out, "resources");
-  return Promise.all([isFullCleanup ? (0, _fs().unlinkIfExists)(path.join(resourcesPath, "default_app.asar")) : Promise.resolve(), isFullCleanup ? (0, _fs().unlinkIfExists)(path.join(out, "version")) : Promise.resolve(), isMac ? Promise.resolve() : (0, _fsExtraP().rename)(path.join(out, "LICENSE"), path.join(out, "LICENSE.electron.txt")).catch(() => {})]);
+  return Promise.all([isFullCleanup ? (0, _fs().unlinkIfExists)(path.join(resourcesPath, "default_app.asar")) : Promise.resolve(), isFullCleanup ? (0, _fs().unlinkIfExists)(path.join(out, "version")) : Promise.resolve(), isMac ? Promise.resolve() : (0, _fsExtra().rename)(path.join(out, "LICENSE"), path.join(out, "LICENSE.electron.txt")).catch(() => {})]);
 } 
 // __ts-babel@6.0.4
 //# sourceMappingURL=ElectronFramework.js.map

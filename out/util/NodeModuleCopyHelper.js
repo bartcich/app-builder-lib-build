@@ -25,10 +25,10 @@ function _fs() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -67,7 +67,9 @@ function _AppFileWalker() {
   return data;
 }
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -98,7 +100,7 @@ class NodeModuleCopyHelper extends _AppFileWalker().FileCopyHelper {
 
       while (queue.length > 0) {
         const dirPath = queue.pop();
-        const childNames = await (0, _fsExtraP().readdir)(dirPath);
+        const childNames = await (0, _fsExtra().readdir)(dirPath);
         childNames.sort();
         const isTopLevel = dirPath === depPath;
         const dirs = []; // our handler is async, but we should add sorted files, so, we add file to result not in the mapper, but after map
@@ -136,7 +138,7 @@ class NodeModuleCopyHelper extends _AppFileWalker().FileCopyHelper {
           }
 
           const filePath = dirPath + path.sep + name;
-          return (0, _fsExtraP().lstat)(filePath).then(stat => {
+          return (0, _fsExtra().lstat)(filePath).then(stat => {
             if (filter != null && !filter(filePath, stat)) {
               return null;
             }

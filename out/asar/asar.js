@@ -17,10 +17,10 @@ function _chromiumPickleJs() {
   return data;
 }
 
-function _fsExtraP() {
-  const data = require("fs-extra-p");
+function _fsExtra() {
+  const data = require("fs-extra");
 
-  _fsExtraP = function () {
+  _fsExtra = function () {
     return data;
   };
 
@@ -29,7 +29,9 @@ function _fsExtraP() {
 
 var path = _interopRequireWildcard(require("path"));
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 /** @internal */
 class Node {}
@@ -143,8 +145,8 @@ class AsarFilesystem {
     return JSON.parse((await this.readFile(file)).toString());
   }
 
-  async readFile(file) {
-    return await readFileFromAsar(this, file, this.getFile(file));
+  readFile(file) {
+    return readFileFromAsar(this, file, this.getFile(file));
   }
 
 }
@@ -152,14 +154,14 @@ class AsarFilesystem {
 exports.AsarFilesystem = AsarFilesystem;
 
 async function readAsar(archive) {
-  const fd = await (0, _fsExtraP().open)(archive, "r");
+  const fd = await (0, _fsExtra().open)(archive, "r");
   let size;
   let headerBuf;
 
   try {
     const sizeBuf = Buffer.allocUnsafe(8);
 
-    if ((await (0, _fsExtraP().read)(fd, sizeBuf, 0, 8, null)) !== 8) {
+    if ((await (0, _fsExtra().read)(fd, sizeBuf, 0, 8, null)).bytesRead !== 8) {
       throw new Error("Unable to read header size");
     }
 
@@ -167,11 +169,11 @@ async function readAsar(archive) {
     size = sizePickle.createIterator().readUInt32();
     headerBuf = Buffer.allocUnsafe(size);
 
-    if ((await (0, _fsExtraP().read)(fd, headerBuf, 0, size, null)) !== size) {
+    if ((await (0, _fsExtra().read)(fd, headerBuf, 0, size, null)).bytesRead !== size) {
       throw new Error("Unable to read header");
     }
   } finally {
-    await (0, _fsExtraP().close)(fd);
+    await (0, _fsExtra().close)(fd);
   }
 
   const headerPickle = (0, _chromiumPickleJs().createFromBuffer)(headerBuf);
@@ -193,16 +195,16 @@ async function readFileFromAsar(filesystem, filename, info) {
   }
 
   if (info.unpacked) {
-    return await (0, _fsExtraP().readFile)(path.join(`${filesystem.src}.unpacked`, filename));
+    return await (0, _fsExtra().readFile)(path.join(`${filesystem.src}.unpacked`, filename));
   }
 
-  const fd = await (0, _fsExtraP().open)(filesystem.src, "r");
+  const fd = await (0, _fsExtra().open)(filesystem.src, "r");
 
   try {
     const offset = 8 + filesystem.headerSize + parseInt(info.offset, 10);
-    await (0, _fsExtraP().read)(fd, buffer, 0, size, offset);
+    await (0, _fsExtra().read)(fd, buffer, 0, size, offset);
   } finally {
-    await (0, _fsExtraP().close)(fd);
+    await (0, _fsExtra().close)(fd);
   }
 
   return buffer;
