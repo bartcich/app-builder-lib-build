@@ -310,7 +310,7 @@ async function validateConfig(config, debugLogger) {
 
 
   validateSchema((await schemeDataPromise.value), config, {
-    name: `electron-builder ${"0.0.0-semantic-release"}`,
+    name: `electron-builder ${"22.2.0"}`,
     postFormatter: (formattedError, error) => {
       if (debugLogger.isEnabled) {
         debugLogger.add("invalidConfig", (0, _builderUtil().safeStringifyJson)(error));

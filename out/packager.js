@@ -364,7 +364,7 @@ class Packager {
 
     try {
       _builderUtil().log.info({
-        version: "0.0.0-semantic-release",
+        version: "22.2.0",
         os: require("os").release()
       }, "electron-builder");
     } catch (e) {
